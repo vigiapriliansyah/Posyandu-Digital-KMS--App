@@ -3,26 +3,39 @@ package com.skripsi.posyandudigital
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.skripsi.posyandudigital.ui.dashboard.DashboardScreen
 import com.skripsi.posyandudigital.ui.login.LoginScreen
 import com.skripsi.posyandudigital.ui.theme.PosyanduDigitalTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContent {
             PosyanduDigitalTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    PosyanduDigitalTheme{
-                        LoginScreen()
+                val navController = rememberNavController()
+
+                NavHost(navController = navController, startDestination = "login") {
+                    composable("login") {
+                        LoginScreen(
+                            onLoginSuccess = { userRole ->
+                                navController.navigate("dashboard/${userRole.lowercase()}") {
+                                    popUpTo("login") { inclusive = true }
+                                }
+                            }
+                        )
+                    }
+                    composable(
+                        route = "dashboard/{role}",
+                        arguments = listOf(navArgument("role") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val role = backStackEntry.arguments?.getString("role")
+                        DashboardScreen(userRole = role ?: "kader"
+                        )
                     }
                 }
             }

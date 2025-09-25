@@ -1,10 +1,9 @@
 const { DataTypes } = require("sequelize");
-const { sequelize } = require("../config/database"); // Import koneksi db
+const { sequelize } = require("../config/database");
 
 const User = sequelize.define(
   "User",
   {
-    // Model attributes are defined here
     id: {
       type: DataTypes.INTEGER,
       autoIncrement: true,
@@ -20,20 +19,19 @@ const User = sequelize.define(
       allowNull: false,
     },
     role: {
-      type: DataTypes.ENUM("superAdmin", "admin", "kader"),
+      // --- PERBAIKAN DI SINI: Gunakan huruf kecil untuk semua peran ---
+      type: DataTypes.ENUM("superadmin", "admin", "kader", "orangtua"),
       allowNull: false,
     },
   },
   {
-    // Other model options go here
     tableName: "users",
   }
 );
 
-// Ini akan membuat tabel jika belum ada
 (async () => {
   await sequelize.sync();
-  console.log("User table synced!");
+  console.log("User table synced with correct ENUM roles!");
 })();
 
 module.exports = User;
