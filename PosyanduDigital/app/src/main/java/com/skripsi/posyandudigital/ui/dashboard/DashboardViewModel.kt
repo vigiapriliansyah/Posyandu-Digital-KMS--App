@@ -11,7 +11,6 @@ import com.skripsi.posyandudigital.data.session.SessionManager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-// Sealed class sekarang menggunakan DTO yang spesifik
 sealed class DashboardState {
     object Loading : DashboardState()
     data class SuperAdminData(val data: SuperAdminDashboardDto) : DashboardState()
@@ -28,7 +27,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     val dashboardState: State<DashboardState> = _dashboardState
 
     private val _logoutCompleted = mutableStateOf(false)
-    val logoutCompleted = _logoutCompleted
+    val logoutCompleted: State<Boolean> = _logoutCompleted
+
     fun loadDashboardData(role: String) {
         viewModelScope.launch {
             _dashboardState.value = DashboardState.Loading
@@ -82,11 +82,16 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
     }
-    fun logout(){
+
+    fun logout() {
         viewModelScope.launch {
             sessionManager.clearSession()
             _logoutCompleted.value = true
         }
+    }
+
+    fun resetLogoutState() {
+        _logoutCompleted.value = false
     }
 }
 

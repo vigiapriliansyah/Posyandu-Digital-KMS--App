@@ -26,7 +26,12 @@ data class KaderDashboardDto(
     @SerializedName("namaPosyandu") val namaPosyandu: String?,
     @SerializedName("namaDesa") val namaDesa: String?,
     @SerializedName("totalBalitaDiPosyandu") val totalBalitaDiPosyandu: Int,
-    @SerializedName("totalOrangTuaMenungguVerifikasi") val totalOrangTuaMenungguVerifikasi: Int
+    @SerializedName("totalOrangTuaMenungguVerifikasi") val totalOrangTuaMenungguVerifikasi: Int,
+    // Tambahkan field-field baru untuk statistik gizi
+    @SerializedName("totalGiziBuruk") val totalGiziBuruk: Int,
+    @SerializedName("totalGiziKurang") val totalGiziKurang: Int,
+    @SerializedName("totalGiziBaik") val totalGiziBaik: Int,
+    @SerializedName("totalGiziLebih") val totalGiziLebih: Int
 )
 
 // DTO untuk Orang Tua, sekarang dengan struktur bertingkat
