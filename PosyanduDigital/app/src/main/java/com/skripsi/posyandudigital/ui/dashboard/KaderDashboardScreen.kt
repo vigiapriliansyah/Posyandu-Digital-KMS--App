@@ -2,10 +2,13 @@ package com.skripsi.posyandudigital.ui.dashboard
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChildCare
 import androidx.compose.material.icons.filled.HowToReg
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -16,8 +19,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.skripsi.posyandudigital.data.remote.dto.KaderDashboardDto
 import com.skripsi.posyandudigital.ui.theme.*
 
+// Data class ini tidak perlu diubah
 data class QuickInfo(
     val title: String,
     val value: String,
@@ -25,12 +30,13 @@ data class QuickInfo(
     val isHighlighted: Boolean = false
 )
 
+// Signature diubah untuk menerima data DTO dan lambda onLogout
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun KaderDashboardScreen() {
+fun KaderDashboardScreen(data: KaderDashboardDto, onLogout: () -> Unit) {
     val quickInfoCards = listOf(
-        QuickInfo("Total Balita di Posyandu Anda", "42", Icons.Default.ChildCare),
-        QuickInfo("Orang Tua Menunggu Verifikasi", "3", Icons.Default.HowToReg, isHighlighted = true)
+        QuickInfo("Total Balita di Posyandu Anda", data.totalBalitaDiPosyandu.toString(), Icons.Default.ChildCare),
+        QuickInfo("Orang Tua Menunggu Verifikasi", data.totalOrangTuaMenungguVerifikasi.toString(), Icons.Default.HowToReg, isHighlighted = true)
     )
 
     Scaffold(
@@ -41,7 +47,12 @@ fun KaderDashboardScreen() {
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = BackgroundLight,
                     titleContentColor = TextPrimary
-                )
+                ),
+                actions = {
+                    IconButton(onClick = onLogout) {
+                        Icon(Icons.Default.Logout, contentDescription = "Logout")
+                    }
+                }
             )
         }
     ) { paddingValues ->
@@ -49,17 +60,17 @@ fun KaderDashboardScreen() {
             modifier = Modifier
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp)
-                .fillMaxSize(),
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()), // Menambahkan scroll untuk konsistensi
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Posyandu Melati 1, Desa Jayagiri",
+                text = "${data.namaPosyandu ?: "Nama Posyandu"}, ${data.namaDesa ?: "Nama Desa"}",
                 style = MaterialTheme.typography.titleMedium,
                 color = TextSecondary,
                 modifier = Modifier.padding(bottom = 24.dp)
             )
 
-            // Kartu Info Cepat di bagian atas
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -71,20 +82,21 @@ fun KaderDashboardScreen() {
                 }
             }
 
-            // Spacer besar untuk memberikan ruang dan fokus ke tombol utama
-            Spacer(modifier = Modifier.weight(1f))
+            // Spacer dibuat fleksibel untuk mendorong tombol ke bawah jika ada ruang
+            Spacer(modifier = Modifier.weight(1f, fill = true))
 
-            // Tombol Aksi Utama yang sangat menonjol
             PrimaryActionButton(
                 text = "Mulai Pencatatan & Verifikasi",
                 onClick = { /* Aksi utama kader */ }
             )
 
-            Spacer(modifier = Modifier.weight(1f))
+            // Spacer kedua untuk menengahkan tombol secara vertikal
+            Spacer(modifier = Modifier.weight(1f, fill = true))
         }
     }
 }
 
+// Komponen di bawah ini tidak perlu diubah
 @Composable
 fun QuickInfoCard(info: QuickInfo) {
     Card(
@@ -126,14 +138,14 @@ fun PrimaryActionButton(text: String, onClick: () -> Unit) {
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .height(120.dp), // Tombol dibuat lebih besar
+            .height(120.dp),
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
     ) {
         Text(
             text = text,
-            fontSize = 22.sp, // Font lebih besar
+            fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
             lineHeight = 28.sp
@@ -141,9 +153,16 @@ fun PrimaryActionButton(text: String, onClick: () -> Unit) {
     }
 }
 
-
 @Preview(showBackground = true, widthDp = 360, heightDp = 640)
 @Composable
 fun KaderDashboardPreview() {
-    KaderDashboardScreen()
+    KaderDashboardScreen(
+        data = KaderDashboardDto(
+            namaPosyandu = "Posyandu Melati 1",
+            namaDesa = "Desa Jayagiri",
+            totalBalitaDiPosyandu = 42,
+            totalOrangTuaMenungguVerifikasi = 3
+        ),
+        onLogout = {}
+    )
 }

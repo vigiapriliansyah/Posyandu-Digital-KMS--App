@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -17,26 +19,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.skripsi.posyandudigital.data.remote.dto.SuperAdminDashboardDto
 import com.skripsi.posyandudigital.ui.theme.*
 
-// Data class untuk merepresentasikan setiap kartu statistik
+// Data class untuk kartu statistik, tidak perlu diubah
 data class StatCardInfo(
     val title: String,
     val value: String,
     val icon: ImageVector
 )
 
+// Signature diubah untuk menerima data DTO dan lambda onLogout
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SuperAdminDashboardScreen() {
-    // Data dummy untuk preview
+fun SuperAdminDashboardScreen(data: SuperAdminDashboardDto, onLogout: () -> Unit) {
     val stats = listOf(
-        StatCardInfo("Total Admin Aktif", "12", Icons.Default.AdminPanelSettings),
-        StatCardInfo("Total Kader Aktif", "150", Icons.Default.Groups),
-        StatCardInfo("Total Desa Terdaftar", "35", Icons.Default.HolidayVillage),
-        StatCardInfo("Total Posyandu Aktif", "78", Icons.Default.LocalHospital),
-        StatCardInfo("Total Balita Terpantau", "2,453", Icons.Default.ChildCare),
-        StatCardInfo("Total Orang Tua", "1,890", Icons.Default.FamilyRestroom)
+        StatCardInfo("Total Admin Aktif", data.totalAdminAktif.toString(), Icons.Default.AdminPanelSettings),
+        StatCardInfo("Total Kader Aktif", data.totalKaderAktif.toString(), Icons.Default.Groups),
+        StatCardInfo("Total Desa Terdaftar", data.totalDesaTerdaftar.toString(), Icons.Default.HolidayVillage),
+        StatCardInfo("Total Posyandu Aktif", data.totalPosyanduAktif.toString(), Icons.Default.LocalHospital),
+        StatCardInfo("Total Balita Terpantau", data.totalBalitaTerpantau.toString(), Icons.Default.ChildCare),
+        StatCardInfo("Total Orang Tua", data.totalOrangTuaTerverifikasi.toString(), Icons.Default.FamilyRestroom)
     )
 
     Scaffold(
@@ -47,17 +50,22 @@ fun SuperAdminDashboardScreen() {
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = BackgroundLight,
                     titleContentColor = TextPrimary
-                )
+                ),
+                actions = {
+                    IconButton(onClick = onLogout) {
+                        Icon(Icons.Default.Logout, contentDescription = "Logout")
+                    }
+                }
             )
         }
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp)
+                .padding(16.dp) // Padding horizontal dipindahkan ke sini
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState()) // Menambahkan scroll
         ) {
-            // Subjudul yang memberikan konteks
             Text(
                 text = "Kabupaten Subang",
                 style = MaterialTheme.typography.titleMedium,
@@ -65,29 +73,33 @@ fun SuperAdminDashboardScreen() {
                 modifier = Modifier.padding(bottom = 24.dp)
             )
 
-            // Grid untuk kartu statistik
             StatsGrid(stats = stats)
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Tombol Aksi Utama
             ActionButtons()
         }
     }
 }
 
+// Komponen-komponen di bawah ini tidak perlu diubah
 @Composable
 fun StatsGrid(stats: List<StatCardInfo>) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        content = {
-            items(stats) { stat ->
+    // LazyVerticalGrid tidak boleh berada di dalam Column yang bisa di-scroll
+    // tanpa memberikan tinggi yang tetap. Kita akan menggunakan Column biasa.
+    // Jika jumlah item banyak, pendekatan lain diperlukan, tapi untuk 6 item ini cukup.
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        mainAxisSpacing = 16.dp,
+        crossAxisSpacing = 16.dp,
+        maxItemsInEachRow = 2
+    ) {
+        stats.forEach { stat ->
+            Box(modifier = Modifier.weight(1f)) {
                 StatCard(info = stat)
             }
         }
-    )
+    }
 }
 
 @Composable
@@ -132,7 +144,6 @@ fun ActionButtons() {
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Tombol Utama (Primary Action)
         Button(
             onClick = { /* Navigasi ke Kelola Akun Admin */ },
             modifier = Modifier
@@ -143,8 +154,6 @@ fun ActionButtons() {
         ) {
             Text("Kelola Akun Admin Desa", fontSize = 16.sp)
         }
-
-        // Tombol Sekunder (Secondary Action)
         OutlinedButton(
             onClick = { /* Navigasi ke Kelola Akun Kader */ },
             modifier = Modifier
@@ -159,10 +168,19 @@ fun ActionButtons() {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Preview(showBackground = true, widthDp = 360, heightDp = 640)
 @Composable
 fun SuperAdminDashboardPreview() {
-    // Anda perlu setup Theme.kt di proyek asli,
-    // tapi untuk preview ini kita bisa langsung panggil screen-nya.
-    SuperAdminDashboardScreen()
+    SuperAdminDashboardScreen(
+        data = SuperAdminDashboardDto(
+            totalAdminAktif = 12,
+            totalKaderAktif = 150,
+            totalDesaTerdaftar = 35,
+            totalPosyanduAktif = 78,
+            totalBalitaTerpantau = 2453,
+            totalOrangTuaTerverifikasi = 1890
+        ),
+        onLogout = {} // Dummy lambda untuk preview
+    )
 }
