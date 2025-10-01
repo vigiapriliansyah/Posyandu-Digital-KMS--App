@@ -6,17 +6,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.skripsi.posyandudigital.data.remote.api.RetrofitClient
+import com.skripsi.posyandudigital.data.remote.dto.*
 import com.skripsi.posyandudigital.data.session.SessionManager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-// Sealed class untuk menampung berbagai jenis state data dashboard
+// Sealed class sekarang menggunakan DTO yang spesifik
 sealed class DashboardState {
     object Loading : DashboardState()
-    data class KaderData(val data: Any) : DashboardState() // Ganti Any dengan DTO
-    data class AdminData(val data: Any) : DashboardState()
-    data class SuperAdminData(val data: Any) : DashboardState()
-    data class OrangTuaData(val data: Any) : DashboardState()
+    data class SuperAdminData(val data: SuperAdminDashboardDto) : DashboardState()
+    data class AdminData(val data: AdminDashboardDto) : DashboardState()
+    data class KaderData(val data: KaderDashboardDto) : DashboardState()
+    data class OrangTuaData(val data: OrangTuaDashboardDto) : DashboardState()
     data class Error(val message: String) : DashboardState()
 }
 
@@ -26,6 +27,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val _dashboardState = mutableStateOf<DashboardState>(DashboardState.Loading)
     val dashboardState: State<DashboardState> = _dashboardState
 
+    private val _logoutCompleted = mutableStateOf(false)
+    val logoutCompleted = _logoutCompleted
     fun loadDashboardData(role: String) {
         viewModelScope.launch {
             _dashboardState.value = DashboardState.Loading
@@ -36,43 +39,54 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     return@launch
                 }
 
-                // --- TAMBAHAN DEBUGGING DI SINI ---
-                // Baris ini akan mencetak isi pasti dari variabel 'role' ke Logcat
-                println("DashboardViewModel received role: '$role'")
-                // ------------------------------------
-
                 val authToken = "Bearer $token"
-
-                // Kita gunakan .trim() untuk menghapus spasi yang tidak disengaja
                 val cleanRole = role.trim().lowercase()
 
-                val response = when (cleanRole) {
-                    "kader" -> RetrofitClient.instance.getKaderDashboard(authToken)
-                    "admin" -> RetrofitClient.instance.getAdminDashboard(authToken)
-                    "superadmin" -> RetrofitClient.instance.getSuperAdminDashboard(authToken)
-                    "orangtua" -> RetrofitClient.instance.getOrangTuaDashboard(authToken)
-                    else -> {
-                        _dashboardState.value = DashboardState.Error("Peran pengguna tidak valid: $role")
-                        null
+                when (cleanRole) {
+                    "superadmin" -> {
+                        val response = RetrofitClient.instance.getSuperAdminDashboard(authToken)
+                        if (response.isSuccessful && response.body() != null) {
+                            _dashboardState.value = DashboardState.SuperAdminData(response.body()!!)
+                        } else {
+                            _dashboardState.value = DashboardState.Error("Gagal memuat data SuperAdmin. Kode: ${response.code()}")
+                        }
                     }
-                }
-
-                if (response != null && response.isSuccessful) {
-                    val data = response.body()
-                    _dashboardState.value = when(cleanRole) {
-                        "kader" -> DashboardState.KaderData(data!!)
-                        "admin" -> DashboardState.AdminData(data!!)
-                        "superadmin" -> DashboardState.SuperAdminData(data!!)
-                        "orangtua" -> DashboardState.OrangTuaData(data!!)
-                        else -> DashboardState.Error("Peran tidak valid setelah response") // Seharusnya tidak pernah terjadi
+                    "admin" -> {
+                        val response = RetrofitClient.instance.getAdminDashboard(authToken)
+                        if (response.isSuccessful && response.body() != null) {
+                            _dashboardState.value = DashboardState.AdminData(response.body()!!)
+                        } else {
+                            _dashboardState.value = DashboardState.Error("Gagal memuat data Admin. Kode: ${response.code()}")
+                        }
                     }
-                } else if (response != null) {
-                    _dashboardState.value = DashboardState.Error("Gagal memuat data. Kode: ${response.code()}")
+                    "kader" -> {
+                        val response = RetrofitClient.instance.getKaderDashboard(authToken)
+                        if (response.isSuccessful && response.body() != null) {
+                            _dashboardState.value = DashboardState.KaderData(response.body()!!)
+                        } else {
+                            _dashboardState.value = DashboardState.Error("Gagal memuat data Kader. Kode: ${response.code()}")
+                        }
+                    }
+                    "orangtua" -> {
+                        val response = RetrofitClient.instance.getOrangTuaDashboard(authToken)
+                        if (response.isSuccessful && response.body() != null) {
+                            _dashboardState.value = DashboardState.OrangTuaData(response.body()!!)
+                        } else {
+                            _dashboardState.value = DashboardState.Error("Gagal memuat data Orang Tua. Kode: ${response.code()}")
+                        }
+                    }
+                    else -> _dashboardState.value = DashboardState.Error("Peran pengguna tidak valid: $role")
                 }
-
             } catch (e: Exception) {
                 _dashboardState.value = DashboardState.Error("Error jaringan: ${e.message}")
             }
         }
     }
+    fun logout(){
+        viewModelScope.launch {
+            sessionManager.clearSession()
+            _logoutCompleted.value = true
+        }
+    }
 }
+

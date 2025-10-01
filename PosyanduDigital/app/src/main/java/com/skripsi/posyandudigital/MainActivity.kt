@@ -3,6 +3,7 @@ package com.skripsi.posyandudigital
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -29,12 +30,22 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     }
+
                     composable(
                         route = "dashboard/{role}",
                         arguments = listOf(navArgument("role") { type = NavType.StringType })
                     ) { backStackEntry ->
                         val role = backStackEntry.arguments?.getString("role")
-                        DashboardScreen(userRole = role ?: "kader"
+
+                        DashboardScreen(
+                            userRole = role ?: "kader",
+                            onLogout = {
+                                navController.navigate("login") {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        inclusive = true
+                                    }
+                                }
+                            }
                         )
                     }
                 }
@@ -42,3 +53,4 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+

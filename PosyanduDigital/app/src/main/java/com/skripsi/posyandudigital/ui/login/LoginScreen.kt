@@ -1,7 +1,5 @@
 package com.skripsi.posyandudigital.ui.login
 
-package com.skripsi.posyandudigital.ui.login
-
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -117,7 +115,7 @@ fun LoginScreen(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
                             singleLine = true,
-                            colors = TextFieldDefaults.outlinedTextFieldColors(
+                            colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                                 unfocusedBorderColor = Color.Gray
                             )
@@ -135,12 +133,16 @@ fun LoginScreen(
                             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                             trailingIcon = {
-                                val image = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility
+                                val image =
+                                    if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility
                                 IconButton(onClick = { viewModel.togglePasswordVisibility() }) {
-                                    Icon(imageVector = image, contentDescription = "Toggle Password Visibility")
+                                    Icon(
+                                        imageVector = image,
+                                        contentDescription = "Toggle Password Visibility"
+                                    )
                                 }
                             },
-                            colors = TextFieldDefaults.outlinedTextFieldColors(
+                            colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                                 unfocusedBorderColor = Color.Gray
                             )
@@ -168,7 +170,11 @@ fun LoginScreen(
                             color = MaterialTheme.colorScheme.onPrimary
                         )
                     } else {
-                        Text("Login", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Login",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
