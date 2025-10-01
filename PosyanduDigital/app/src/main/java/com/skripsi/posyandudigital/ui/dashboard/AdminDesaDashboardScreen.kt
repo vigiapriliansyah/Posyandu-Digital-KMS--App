@@ -18,16 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-// Definisikan palet warna untuk kemudahan penggunaan
-val PrimaryBlue = Color(0xFF4A90E2)
-val TextPrimary = Color(0xFF212121)
-val TextSecondary = Color(0xFF757575)
-val BackgroundLight = Color(0xFFF7F9FC)
-val CardBackground = Color.White
-val WarningYellow = Color(0xFFF5A623)
-val CriticalRed = Color(0xFFD0021B)
-val HealthyGreen = Color(0xFF50B878)
+import com.skripsi.posyandudigital.ui.theme.*
 
 // Data class untuk kartu statistik, dengan warna dinamis
 data class StatCardInfoWithColor(

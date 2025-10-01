@@ -10,21 +10,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-// Menggunakan kembali palet warna yang sudah didefinisikan
-val PrimaryBlue = Color(0xFF4A90E2)
-val TextPrimary = Color(0xFF212121)
-val TextSecondary = Color(0xFF757575)
-val BackgroundLight = Color(0xFFF7F9FC)
-val CardBackground = Color.White
-val WarningYellow = Color(0xFFF5A623)
+import com.skripsi.posyandudigital.ui.theme.*
 
 data class QuickInfo(
     val title: String,

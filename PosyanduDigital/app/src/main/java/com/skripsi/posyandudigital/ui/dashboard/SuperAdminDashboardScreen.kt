@@ -1,5 +1,6 @@
 package com.skripsi.posyandudigital.ui.dashboard
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -11,20 +12,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.BorderStroke
-
-// Definisikan palet warna untuk kemudahan penggunaan
-val PrimaryBlue = Color(0xFF4A90E2)
-val TextPrimary = Color(0xFF212121)
-val TextSecondary = Color(0xFF757575)
-val BackgroundLight = Color(0xFFF7F9FC)
-val CardBackground = Color.White
+import com.skripsi.posyandudigital.ui.theme.*
 
 // Data class untuk merepresentasikan setiap kartu statistik
 data class StatCardInfo(
