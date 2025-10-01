@@ -3,13 +3,11 @@ package com.skripsi.posyandudigital.ui.dashboard
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.MonitorWeight
-import androidx.compose.material.icons.filled.Note
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,12 +20,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.skripsi.posyandudigital.data.remote.dto.Anak
+import com.skripsi.posyandudigital.data.remote.dto.Kms
+import com.skripsi.posyandudigital.data.remote.dto.OrangTuaDashboardDto
 import com.skripsi.posyandudigital.ui.theme.*
 
+// Signature diubah untuk menerima data DTO dan lambda onLogout
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OrangTuaDashboardScreen() {
-    var selectedChild by remember { mutableStateOf("Ananda Budi") }
+fun OrangTuaDashboardScreen(data: OrangTuaDashboardDto, onLogout: () -> Unit) {
+    var selectedChild by remember { mutableStateOf(data.anak?.namaAnak ?: "Anak") }
 
     Scaffold(
         containerColor = BackgroundLight,
@@ -37,7 +39,12 @@ fun OrangTuaDashboardScreen() {
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = BackgroundLight,
                     titleContentColor = TextPrimary
-                )
+                ),
+                actions = {
+                    IconButton(onClick = onLogout) {
+                        Icon(Icons.Default.Logout, contentDescription = "Logout")
+                    }
+                }
             )
         }
     ) { paddingValues ->
@@ -46,8 +53,8 @@ fun OrangTuaDashboardScreen() {
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp)
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
         ) {
-            // Dropdown untuk memilih anak jika ada lebih dari satu
             ChildSelector(
                 currentChild = selectedChild,
                 onChildSelected = { selectedChild = it }
@@ -55,17 +62,14 @@ fun OrangTuaDashboardScreen() {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Placeholder untuk Grafik Garis Pertumbuhan
             GrowthChartPlaceholder()
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Kartu Ringkasan Kunjungan Terakhir
-            LastVisitSummaryCard()
+            LastVisitSummaryCard(kms = data.kmsTerakhir)
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Tombol Aksi Sekunder
             OutlinedButton(
                 onClick = { /* Navigasi ke Riwayat Lengkap */ },
                 modifier = Modifier
@@ -80,9 +84,9 @@ fun OrangTuaDashboardScreen() {
     }
 }
 
+// Komponen di bawah ini tidak perlu diubah secara signifikan
 @Composable
 fun ChildSelector(currentChild: String, onChildSelected: (String) -> Unit) {
-    // Implementasi dropdown sederhana
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -99,9 +103,6 @@ fun ChildSelector(currentChild: String, onChildSelected: (String) -> Unit) {
 
 @Composable
 fun GrowthChartPlaceholder() {
-    // Di aplikasi nyata, di sini akan ada komponen grafik dari library
-    // seperti MPAndroidChart atau Vico.
-    // Placeholder ini meniru tampilan area grafik KMS.
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -121,7 +122,7 @@ fun GrowthChartPlaceholder() {
 }
 
 @Composable
-fun LastVisitSummaryCard() {
+fun LastVisitSummaryCard(kms: Kms?) {
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = CardBackground),
@@ -139,13 +140,18 @@ fun LastVisitSummaryCard() {
                 color = TextPrimary
             )
             Spacer(modifier = Modifier.height(16.dp))
-            SummaryItem(Icons.Default.CalendarToday, "Tanggal", "25 September 2025")
-            Divider(modifier = Modifier.padding(vertical = 8.dp), color = BackgroundLight)
-            SummaryItem(Icons.Default.MonitorWeight, "Berat Badan", "10.5 kg")
-            Divider(modifier = Modifier.padding(vertical = 8.dp), color = BackgroundLight)
-            SummaryItem(Icons.Default.Star, "Status Gizi", "Gizi Baik", highlightColor = HealthyGreen)
-            Divider(modifier = Modifier.padding(vertical = 8.dp), color = BackgroundLight)
-            SummaryItem(Icons.Default.Note, "Catatan Petugas", "Ananda sangat aktif dan sehat. Pertahankan pola makan bergizi.")
+
+            if (kms != null) {
+                SummaryItem(Icons.Default.CalendarToday, "Tanggal", kms.tanggalPencatatan ?: "-")
+                Divider(modifier = Modifier.padding(vertical = 8.dp), color = BackgroundLight)
+                SummaryItem(Icons.Default.MonitorWeight, "Berat Badan", "${kms.beratBadan ?: 0} kg")
+                Divider(modifier = Modifier.padding(vertical = 8.dp), color = BackgroundLight)
+                SummaryItem(Icons.Default.Star, "Status Gizi", kms.statusGizi ?: "N/A", highlightColor = HealthyGreen)
+                Divider(modifier = Modifier.padding(vertical = 8.dp), color = BackgroundLight)
+                SummaryItem(Icons.Default.Note, "Catatan Petugas", kms.catatan ?: "Tidak ada catatan.")
+            } else {
+                Text("Belum ada data kunjungan terakhir.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+            }
         }
     }
 }
@@ -180,5 +186,17 @@ fun SummaryItem(icon: ImageVector, label: String, value: String, highlightColor:
 @Preview(showBackground = true, widthDp = 360, heightDp = 740)
 @Composable
 fun OrangTuaDashboardPreview() {
-    OrangTuaDashboardScreen()
+    OrangTuaDashboardScreen(
+        data = OrangTuaDashboardDto(
+            anak = Anak(namaAnak = "Ananda Budi"),
+            kmsTerakhir = Kms(
+                tanggalPencatatan = "25 September 2025",
+                beratBadan = "10.5",
+                tinggiBadan = "80",
+                statusGizi = "Gizi Baik",
+                catatan = "Ananda sangat aktif dan sehat. Pertahankan pola makan bergizi."
+            )
+        ),
+        onLogout = {}
+    )
 }

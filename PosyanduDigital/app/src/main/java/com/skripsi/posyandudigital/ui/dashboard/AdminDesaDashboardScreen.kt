@@ -2,10 +2,9 @@ package com.skripsi.posyandudigital.ui.dashboard
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -18,9 +17,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.skripsi.posyandudigital.data.remote.dto.AdminDashboardDto
 import com.skripsi.posyandudigital.ui.theme.*
 
-// Data class untuk kartu statistik, dengan warna dinamis
+// Data class untuk kartu statistik, tidak perlu diubah
 data class StatCardInfoWithColor(
     val title: String,
     val value: String,
@@ -28,17 +28,17 @@ data class StatCardInfoWithColor(
     val iconColor: Color = PrimaryBlue
 )
 
+// Signature diubah untuk menerima data DTO dan lambda onLogout
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdminDesaDashboardScreen() {
-    // Data dummy untuk preview
+fun AdminDesaDashboardScreen(data: AdminDashboardDto, onLogout: () -> Unit) {
     val stats = listOf(
-        StatCardInfoWithColor("Total Balita Terpantau", "312", Icons.Default.ChildCare),
-        StatCardInfoWithColor("Gizi Buruk", "5", Icons.Default.Warning, iconColor = CriticalRed),
-        StatCardInfoWithColor("Gizi Kurang", "21", Icons.Default.SentimentVeryDissatisfied, iconColor = WarningYellow),
-        StatCardInfoWithColor("Gizi Baik", "275", Icons.Default.SentimentSatisfied, iconColor = HealthyGreen),
-        StatCardInfoWithColor("Gizi Lebih", "11", Icons.Default.SentimentVerySatisfied),
-        StatCardInfoWithColor("Total Kader Aktif", "8", Icons.Default.Groups)
+        StatCardInfoWithColor("Total Balita Terpantau", data.totalBalitaTerpantau.toString(), Icons.Default.ChildCare),
+        StatCardInfoWithColor("Gizi Buruk", data.giziBuruk.toString(), Icons.Default.Warning, iconColor = CriticalRed),
+        StatCardInfoWithColor("Gizi Kurang", data.giziKurang.toString(), Icons.Default.SentimentVeryDissatisfied, iconColor = WarningYellow),
+        StatCardInfoWithColor("Gizi Baik", data.giziBaik.toString(), Icons.Default.SentimentSatisfied, iconColor = HealthyGreen),
+        StatCardInfoWithColor("Gizi Lebih", data.giziLebih.toString(), Icons.Default.SentimentVerySatisfied),
+        StatCardInfoWithColor("Total Kader Aktif", data.totalKaderAktif.toString(), Icons.Default.Groups)
     )
 
     Scaffold(
@@ -49,18 +49,24 @@ fun AdminDesaDashboardScreen() {
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = BackgroundLight,
                     titleContentColor = TextPrimary
-                )
+                ),
+                actions = {
+                    IconButton(onClick = onLogout) {
+                        Icon(Icons.Default.Logout, contentDescription = "Logout")
+                    }
+                }
             )
         }
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp)
+                .padding(16.dp)
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
         ) {
             Text(
-                text = "Desa Jayagiri",
+                text = data.namaDesa ?: "Nama Desa Tidak Ditemukan",
                 style = MaterialTheme.typography.titleMedium,
                 color = TextSecondary,
                 modifier = Modifier.padding(bottom = 24.dp)
@@ -75,18 +81,22 @@ fun AdminDesaDashboardScreen() {
     }
 }
 
+// Komponen di bawah ini tidak perlu diubah
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun StatsGridForAdmin(stats: List<StatCardInfoWithColor>) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        content = {
-            items(stats) { stat ->
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        mainAxisSpacing = 16.dp,
+        crossAxisSpacing = 16.dp,
+        maxItemsInEachRow = 2
+    ) {
+        stats.forEach { stat ->
+            Box(modifier = Modifier.weight(1f)) {
                 StatCardWithColor(info = stat)
             }
         }
-    )
+    }
 }
 
 @Composable
@@ -141,7 +151,6 @@ fun ActionButtonsForAdmin() {
         ) {
             Text("Kelola Kader", fontSize = 16.sp)
         }
-
         OutlinedButton(
             onClick = { /* Navigasi ke Input Pencatatan */ },
             modifier = Modifier
@@ -159,5 +168,16 @@ fun ActionButtonsForAdmin() {
 @Preview(showBackground = true, widthDp = 360, heightDp = 640)
 @Composable
 fun AdminDesaDashboardPreview() {
-    AdminDesaDashboardScreen()
+    AdminDesaDashboardScreen(
+        data = AdminDashboardDto(
+            namaDesa = "Desa Jayagiri",
+            totalBalitaTerpantau = 312,
+            giziBuruk = 5,
+            giziKurang = 21,
+            giziBaik = 275,
+            giziLebih = 11,
+            totalKaderAktif = 8
+        ),
+        onLogout = {}
+    )
 }
