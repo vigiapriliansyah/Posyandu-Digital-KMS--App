@@ -16,27 +16,23 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.skripsi.posyandudigital.ui.theme.BackgroundLight
 
-/**
- * Composable utama yang bertindak sebagai router.
- * Memilih dashboard mana yang akan ditampilkan berdasarkan peran pengguna (userRole).
- */
 @Composable
 fun DashboardScreen(
     userRole: String,
     onLogout: () -> Unit,
-    viewModel: DashboardViewModel = viewModel()
+    viewModel: DashboardViewModel = viewModel(),
+    onNavigateToKelolaAdmin: () -> Unit,
+    onNavigateToKelolaKader: () -> Unit
 ) {
     val logoutCompleted = viewModel.logoutCompleted.value
 
-    // Efek untuk menangani proses logout
     LaunchedEffect(logoutCompleted) {
         if (logoutCompleted) {
             onLogout()
-            viewModel.resetLogoutState() // Reset state setelah navigasi
+            viewModel.resetLogoutState()
         }
     }
 
-    // Efek untuk memuat data dashboard saat peran pengguna berubah
     LaunchedEffect(key1 = userRole) {
         viewModel.loadDashboardData(userRole)
     }
@@ -55,8 +51,14 @@ fun DashboardScreen(
                     Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
                 }
             }
-            // Memanggil Composable dari file terpisah
-            is DashboardState.SuperAdminData -> SuperAdminDashboardScreen(data = state.data, onLogout = { viewModel.logout() })
+            is DashboardState.SuperAdminData -> {
+                SuperAdminDashboardScreen(
+                    data = state.data,
+                    onLogout = { viewModel.logout() },
+                    onNavigateToKelolaAdmin = onNavigateToKelolaAdmin,
+                    onNavigateToKelolaKader = onNavigateToKelolaKader
+                )
+            }
             is DashboardState.AdminData -> AdminDesaDashboardScreen(data = state.data, onLogout = { viewModel.logout() })
             is DashboardState.KaderData -> KaderDashboardScreen(data = state.data, onLogout = { viewModel.logout() })
             is DashboardState.OrangTuaData -> OrangTuaDashboardScreen(data = state.data, onLogout = { viewModel.logout() })

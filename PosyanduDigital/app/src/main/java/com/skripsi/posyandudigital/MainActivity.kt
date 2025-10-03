@@ -12,6 +12,7 @@ import androidx.navigation.navArgument
 import com.skripsi.posyandudigital.ui.dashboard.DashboardScreen
 import com.skripsi.posyandudigital.ui.login.LoginScreen
 import com.skripsi.posyandudigital.ui.theme.PosyanduDigitalTheme
+import com.skripsi.posyandudigital.ui.usermanagement.UserManagementScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,6 +46,27 @@ class MainActivity : ComponentActivity() {
                                         inclusive = true
                                     }
                                 }
+                            },
+                            // ---- PERUBAHAN UTAMA: Memberikan aksi navigasi yang sebenarnya ----
+                            onNavigateToKelolaAdmin = {
+                                navController.navigate("user_management/admin")
+                            },
+                            onNavigateToKelolaKader = {
+                                navController.navigate("user_management/kader")
+                            }
+                        )
+                    }
+
+                    // ---- TAMBAHAN: Mendefinisikan layar tujuan kita ----
+                    composable(
+                        route = "user_management/{role}",
+                        arguments = listOf(navArgument("role") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val role = backStackEntry.arguments?.getString("role") ?: ""
+                        UserManagementScreen(
+                            roleToDisplay = role,
+                            onNavigateBack = {
+                                navController.popBackStack() // Aksi untuk tombol kembali
                             }
                         )
                     }
@@ -53,4 +75,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
