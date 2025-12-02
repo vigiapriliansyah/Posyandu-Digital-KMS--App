@@ -4,13 +4,26 @@ const { connectDB, sequelize } = require("./config/database");
 const Kecamatan = require("./models/Kecamatan");
 const Desa = require("./models/Desa");
 
+// --- IMPORT ROUTES ---
 const authRoutes = require("./routes/authRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const userRoutes = require("./routes/userRoutes");
 const desaRoutes = require("./routes/desaRoutes");
 const kecamatanRoutes = require("./routes/kecamatanRoutes");
+const posyanduRoutes = require("./routes/posyanduRoutes");
 
-// --- FUNGSI SEEDER UNTUK KECAMATAN (TETAP SAMA) ---
+const app = express();
+app.use(express.json());
+
+// --- DAFTARKAN ROUTES ---
+app.use("/api/auth", authRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/desa", desaRoutes);
+app.use("/api/kecamatan", kecamatanRoutes);
+app.use("/api/posyandu", posyanduRoutes);
+
+// --- FUNGSI SEEDER KECAMATAN ---
 const seedKecamatan = async () => {
   const daftarKecamatan = [
     "Sagalaherang",
@@ -44,10 +57,9 @@ const seedKecamatan = async () => {
     "Ciater",
     "Pusakajaya",
   ];
-
   try {
-    // --- DIKEMBALIKAN KE BAHASA INDONESIA ---
-    console.log("Memulai seeding data kecamatan...");
+    // Kita hapus pengecekan count === 0 agar selalu memastikan data lengkap
+    console.log("Memulai seeding/verifikasi data kecamatan...");
     for (const nama of daftarKecamatan) {
       await Kecamatan.findOrCreate({ where: { nama_kecamatan: nama } });
     }
@@ -57,7 +69,7 @@ const seedKecamatan = async () => {
   }
 };
 
-// --- FUNGSI SEEDER DESA DENGAN DATA LENGKAP ---
+// --- FUNGSI SEEDER DESA ---
 const seedDesa = async () => {
   const daftarDesa = [
     // Binong
@@ -346,8 +358,8 @@ const seedDesa = async () => {
   ];
 
   try {
-    // --- DIKEMBALIKAN KE BAHASA INDONESIA ---
-    console.log("Memulai seeding data desa...");
+    // PERBAIKAN: Hapus pengecekan count === 0 agar script selalu mengecek kelengkapan desa
+    console.log("Memulai seeding/verifikasi data desa...");
     for (const desaInfo of daftarDesa) {
       const kecamatan = await Kecamatan.findOne({
         where: { nama_kecamatan: desaInfo.kecamatan },
@@ -371,21 +383,13 @@ const seedDesa = async () => {
   }
 };
 
+// --- START SERVER ---
 connectDB().then(() => {
   sequelize.sync().then(async () => {
     await seedKecamatan();
     await seedDesa();
   });
 });
-
-const app = express();
-app.use(express.json());
-
-app.use("/api/auth", authRoutes);
-app.use("/api/dashboard", dashboardRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/desa", desaRoutes);
-app.use("/api/kecamatan", kecamatanRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

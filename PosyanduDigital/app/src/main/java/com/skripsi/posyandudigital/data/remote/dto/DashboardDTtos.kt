@@ -1,46 +1,52 @@
 package com.skripsi.posyandudigital.data.remote.dto
 
 import com.google.gson.annotations.SerializedName
-// Data yang diterima untuk dashboard Super Admin
 
+// --- SUPER ADMIN ---
+// PERBAIKAN: Struktur disesuaikan dengan respon backend yang bersarang (Nested)
 data class SuperAdminDashboardDto(
-    @SerializedName("totalAdminAktif") val totalAdminAktif: Int,
-    @SerializedName("totalKaderAktif") val totalKaderAktif: Int,
-    @SerializedName("totalDesaTerdaftar") val totalDesaTerdaftar: Int,
-    @SerializedName("totalPosyanduAktif") val totalPosyanduAktif: Int,
-    @SerializedName("totalBalitaTerpantau") val totalBalitaTerpantau: Int,
-    @SerializedName("totalOrangTuaTerverifikasi") val totalOrangTuaTerverifikasi: Int
+    @SerializedName("statistik_nasional") val statistik: StatistikNasionalDto
 )
 
+data class StatistikNasionalDto(
+    @SerializedName("total_admin_desa") val totalAdminDesa: Int,
+    @SerializedName("total_kader") val totalKader: Int,
+    @SerializedName("total_desa_terdaftar") val totalDesa: Int,
+    @SerializedName("total_posyandu_aktif") val totalPosyandu: Int,
+    @SerializedName("total_anak_terdata") val totalBalita: Int,
+    @SerializedName("total_orang_tua_terverifikasi") val totalOrangTua: Int
+)
+
+// --- ADMIN DESA ---
 data class AdminDashboardDto(
-    @SerializedName("namaDesa") val namaDesa: String?, // Dibuat nullable untuk keamanan
+    @SerializedName("namaDesa") val namaDesa: String?,
     @SerializedName("totalBalitaTerpantau") val totalBalitaTerpantau: Int,
     @SerializedName("totalGiziBuruk") val totalGiziBuruk: Int,
     @SerializedName("totalGiziKurang") val totalGiziKurang: Int,
     @SerializedName("totalGiziBaik") val totalGiziBaik: Int,
     @SerializedName("totalGiziLebih") val totalGiziLebih: Int,
-    @SerializedName("totalKaderAktif") val totalKaderAktif: Int
+    @SerializedName("totalKaderAktif") val totalKaderAktif: Int,
+    @SerializedName("totalPosyandu") val totalPosyandu: Int
 )
 
+// --- KADER ---
 data class KaderDashboardDto(
     @SerializedName("namaPosyandu") val namaPosyandu: String?,
     @SerializedName("namaDesa") val namaDesa: String?,
     @SerializedName("totalBalitaDiPosyandu") val totalBalitaDiPosyandu: Int,
     @SerializedName("totalOrangTuaMenungguVerifikasi") val totalOrangTuaMenungguVerifikasi: Int,
-    // Tambahkan field-field baru untuk statistik gizi
     @SerializedName("totalGiziBuruk") val totalGiziBuruk: Int,
     @SerializedName("totalGiziKurang") val totalGiziKurang: Int,
     @SerializedName("totalGiziBaik") val totalGiziBaik: Int,
     @SerializedName("totalGiziLebih") val totalGiziLebih: Int
 )
 
-// DTO untuk Orang Tua, sekarang dengan struktur bertingkat
+// --- ORANG TUA ---
 data class OrangTuaDashboardDto(
     @SerializedName("anak") val anak: AnakDto?,
     @SerializedName("kms_terakhir") val kmsTerakhir: KmsSimpleDto?
 )
 
-// Kelas data baru untuk objek 'anak' yang bertingkat
 data class AnakDto(
     @SerializedName("nama_anak") val namaAnak: String?,
     @SerializedName("umur_bulan") val umurBulan: Int
@@ -52,4 +58,3 @@ data class KmsSimpleDto(
     @SerializedName("tinggi_badan") val tinggiBadan: Double,
     @SerializedName("status_gizi") val statusGizi: String?
 )
-

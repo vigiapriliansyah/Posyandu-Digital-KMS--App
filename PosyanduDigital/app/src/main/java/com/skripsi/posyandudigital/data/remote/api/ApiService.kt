@@ -1,15 +1,13 @@
 package com.skripsi.posyandudigital.data.remote.api
 
-import androidx.compose.ui.semantics.Role
 import com.skripsi.posyandudigital.data.remote.dto.*
 import retrofit2.Response
 import retrofit2.http.*
 
 interface ApiService {
+    // --- Auth & Dashboard ---
     @POST("api/auth/login")
-    suspend fun login(
-        @Body loginRequest: LoginRequest
-    ): Response<LoginResponse>
+    suspend fun login(@Body loginRequest: LoginRequest): Response<LoginResponse>
 
     @GET("api/dashboard/kader")
     suspend fun getKaderDashboard(@Header("Authorization") token: String): Response<KaderDashboardDto>
@@ -23,10 +21,13 @@ interface ApiService {
     @GET("api/dashboard/orangtua")
     suspend fun getOrangTuaDashboard(@Header("Authorization") token: String): Response<OrangTuaDashboardDto>
 
+    @GET("api/auth/me")
+    suspend fun getMe(@Header("Authorization") token: String): Response<UserDto>
+    // --- User Management ---
     @GET("api/users")
     suspend fun getUsers(
         @Header("Authorization") token: String,
-        @Query("role") role: String? = null
+        @Query("role") role: String?
     ): Response<List<UserDto>>
 
     @POST("api/users")
@@ -38,7 +39,7 @@ interface ApiService {
     @PUT("api/users/{id}")
     suspend fun updateUser(
         @Header("Authorization") token: String,
-        @Path("id") userId: Int,
+        @Path("id") id: Int,
         @Body updateUserRequest: UpdateUserRequest
     ): Response<UserDto>
 
@@ -47,4 +48,27 @@ interface ApiService {
         @Header("Authorization") token: String,
         @Path("id") userId: Int
     ): Response<Unit>
+
+    // --- WILAYAH ---
+    @GET("api/kecamatan")
+    suspend fun getKecamatan(@Header("Authorization") token: String): Response<List<KecamatanDto>>
+
+    @GET("api/desa")
+    suspend fun getDesa(
+        @Header("Authorization") token: String,
+        @Query("kecamatan_id") kecamatanId: Int
+    ): Response<List<DesaDto>>
+
+    @GET("api/posyandu")
+    suspend fun getPosyandu(
+        @Header("Authorization") token: String,
+        @Query("desa_id") desaId: Int
+    ): Response<List<PosyanduDto>>
+
+    // --- TAMBAHAN BARU UNTUK CREATE POSYANDU ---
+    @POST("api/posyandu")
+    suspend fun createPosyandu(
+        @Header("Authorization") token: String,
+        @Body request: CreatePosyanduRequest
+    ): Response<PosyanduDto>
 }

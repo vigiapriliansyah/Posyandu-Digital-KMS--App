@@ -1,9 +1,7 @@
 package com.skripsi.posyandudigital.data.repository
 
 import com.skripsi.posyandudigital.data.remote.api.ApiService
-import com.skripsi.posyandudigital.data.remote.dto.CreateUserRequest
-import com.skripsi.posyandudigital.data.remote.dto.UpdateUserRequest
-import com.skripsi.posyandudigital.data.remote.dto.UserDto
+import com.skripsi.posyandudigital.data.remote.dto.*
 import com.skripsi.posyandudigital.data.session.SessionManager
 import com.skripsi.posyandudigital.utils.ResultWrapper
 import kotlinx.coroutines.flow.Flow
@@ -17,64 +15,133 @@ class UserManagementRepositoryImpl(
     private val sessionManager: SessionManager
 ) : UserManagementRepository {
 
-    // ... fungsi getUsers dan createUser tidak berubah ...
+    private suspend fun getToken(): String? = sessionManager.getToken().firstOrNull()
+
     override fun getUsers(role: String?): Flow<ResultWrapper<List<UserDto>>> = flow {
         emit(ResultWrapper.Loading)
         try {
-            val token = sessionManager.getToken().firstOrNull()
-            if (token == null) {
-                emit(ResultWrapper.Error("Sesi berakhir, silakan login kembali."))
-                return@flow
-            }
-            val response = apiService.getUsers(token = "Bearer $token", role = role)
+            val token = getToken() ?: return@flow emit(ResultWrapper.Error("Sesi berakhir"))
+            val response = apiService.getUsers("Bearer $token", role)
             if (response.isSuccessful && response.body() != null) {
                 emit(ResultWrapper.Success(response.body()!!))
             } else {
                 emit(ResultWrapper.Error("Gagal mengambil data: ${response.code()}"))
             }
-        } catch (e: HttpException) {
-            emit(ResultWrapper.Error("Terjadi kesalahan jaringan."))
-        } catch (e: IOException) {
-            emit(ResultWrapper.Error("Tidak dapat terhubung ke server."))
+        } catch (e: Exception) {
+            emit(ResultWrapper.Error("Error: ${e.message}"))
         }
     }
 
     override fun createUser(user: CreateUserRequest): Flow<ResultWrapper<UserDto>> = flow {
         emit(ResultWrapper.Loading)
         try {
-            val token = sessionManager.getToken().firstOrNull() ?: return@flow emit(ResultWrapper.Error("Token tidak ditemukan"))
-            val response = apiService.createUser(token = "Bearer $token", createUserRequest = user)
+            val token = getToken() ?: return@flow emit(ResultWrapper.Error("Sesi berakhir"))
+            val response = apiService.createUser("Bearer $token", user)
             if (response.isSuccessful && response.body() != null) {
                 emit(ResultWrapper.Success(response.body()!!))
             } else {
-                emit(ResultWrapper.Error("Gagal membuat user: ${response.code()}"))
+                val errorMsg =
+                    response.errorBody()?.string() ?: "Gagal membuat user: ${response.code()}"
+                emit(ResultWrapper.Error(errorMsg))
             }
         } catch (e: Exception) {
-            emit(ResultWrapper.Error("Terjadi kesalahan: ${e.message}"))
+            emit(ResultWrapper.Error("Error: ${e.message}"))
+        }
+    }
+
+    override fun deleteUser(id: Int): Flow<ResultWrapper<Unit>> = flow {
+        emit(ResultWrapper.Loading)
+        try {
+            val token = getToken() ?: return@flow emit(ResultWrapper.Error("Sesi berakhir"))
+            val response = apiService.deleteUser("Bearer $token", id)
+            if (response.isSuccessful) emit(ResultWrapper.Success(Unit))
+            else emit(ResultWrapper.Error("Gagal hapus: ${response.code()}"))
+        } catch (e: Exception) {
+            emit(ResultWrapper.Error("Error: ${e.message}"))
         }
     }
 
     override fun updateUser(id: Int, user: UpdateUserRequest): Flow<ResultWrapper<UserDto>> = flow {
-        emit(ResultWrapper.Loading)
-        emit(ResultWrapper.Error("Fitur edit belum diimplementasi")) // Placeholder
+        emit(ResultWrapper.Error("Fitur edit belum diimplementasi"))
     }
 
-    // --- PERUBAHAN UTAMA: Implementasi fungsi deleteUser ---
-    override fun deleteUser(id: Int): Flow<ResultWrapper<Unit>> = flow {
+    override fun getKecamatan(): Flow<ResultWrapper<List<KecamatanDto>>> = flow {
         emit(ResultWrapper.Loading)
         try {
-            val token = sessionManager.getToken().firstOrNull() ?: return@flow emit(ResultWrapper.Error("Token tidak ditemukan"))
-            // ---- PERBAIKAN DI SINI: Nama parameter diubah dari 'id' menjadi 'userId' ----
-            val response = apiService.deleteUser(token = "Bearer $token", userId = id)
-            // --------------------------------------------------------------------------
-            if (response.isSuccessful) {
-                emit(ResultWrapper.Success(Unit)) // Kirim Success tanpa data
-            } else {
-                emit(ResultWrapper.Error("Gagal menghapus user: ${response.code()}"))
-            }
+            val token = getToken() ?: return@flow emit(ResultWrapper.Error("Sesi berakhir"))
+            val response = apiService.getKecamatan("Bearer $token")
+            if (response.isSuccessful && response.body() != null) emit(
+                ResultWrapper.Success(
+                    response.body()!!
+                )
+            )
+            else emit(ResultWrapper.Error("Gagal memuat kecamatan"))
         } catch (e: Exception) {
-            emit(ResultWrapper.Error("Terjadi kesalahan: ${e.message}"))
+            emit(ResultWrapper.Error(e.message ?: "Error"))
         }
     }
-}
 
+    override fun getDesa(kecamatanId: Int): Flow<ResultWrapper<List<DesaDto>>> = flow {
+        emit(ResultWrapper.Loading)
+        try {
+            val token = getToken() ?: return@flow emit(ResultWrapper.Error("Sesi berakhir"))
+            val response = apiService.getDesa("Bearer $token", kecamatanId)
+            if (response.isSuccessful && response.body() != null) emit(
+                ResultWrapper.Success(
+                    response.body()!!
+                )
+            )
+            else emit(ResultWrapper.Error("Gagal memuat desa"))
+        } catch (e: Exception) {
+            emit(ResultWrapper.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun getPosyandu(desaId: Int): Flow<ResultWrapper<List<PosyanduDto>>> = flow {
+        emit(ResultWrapper.Loading)
+        try {
+            val token = getToken() ?: return@flow emit(ResultWrapper.Error("Sesi berakhir"))
+            val response = apiService.getPosyandu("Bearer $token", desaId)
+            if (response.isSuccessful && response.body() != null) emit(
+                ResultWrapper.Success(
+                    response.body()!!
+                )
+            )
+            else emit(ResultWrapper.Error("Gagal memuat posyandu"))
+        } catch (e: Exception) {
+            emit(ResultWrapper.Error(e.message ?: "Error"))
+        }
+    }
+
+    // Implementasi createPosyandu
+    override fun createPosyandu(nama: String, desaId: Int): Flow<ResultWrapper<PosyanduDto>> =
+        flow {
+            emit(ResultWrapper.Loading)
+            try {
+                val token = getToken() ?: return@flow emit(ResultWrapper.Error("Sesi berakhir"))
+                val request = CreatePosyanduRequest(nama, desaId)
+                val response = apiService.createPosyandu("Bearer $token", request)
+
+                if (response.isSuccessful && response.body() != null) {
+                    emit(ResultWrapper.Success(response.body()!!))
+                } else {
+                    val errorMsg = response.errorBody()?.string() ?: "Gagal: ${response.code()}"
+                    emit(ResultWrapper.Error(errorMsg))
+                }
+            } catch (e: Exception) {
+                emit(ResultWrapper.Error("Error: ${e.message}"))
+            }
+        }
+    override fun getCurrentUser(): Flow<ResultWrapper<UserDto>> = flow {
+        emit(ResultWrapper.Loading)
+        try {
+            val token = getToken() ?: return@flow emit(ResultWrapper.Error("Sesi berakhir"))
+            val response = apiService.getMe("Bearer $token")
+            if (response.isSuccessful && response.body() != null) {
+                emit(ResultWrapper.Success(response.body()!!))
+            } else {
+                emit(ResultWrapper.Error("Gagal memuat profil"))
+            }
+        } catch (e: Exception) { emit(ResultWrapper.Error("Error: ${e.message}")) }
+    }
+}

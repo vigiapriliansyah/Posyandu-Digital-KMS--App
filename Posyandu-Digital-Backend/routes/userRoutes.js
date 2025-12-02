@@ -1,24 +1,30 @@
 const express = require("express");
 const router = express.Router();
-const {
-  createUser,
-  getUsers,
-  getUserById,
-  updateUser,
-  deleteUser,
-} = require("../controllers/userController");
-// ---- PERBAIKAN UTAMA ADA DI BARIS INI ----
-const { protect, checkRole } = require("../middleware/authMiddleware"); // Mengganti 'authorize' menjadi 'checkRole'
 
-// Lindungi semua rute di bawah ini dengan otentikasi dan otorisasi Super Admin
+// Import controller
+const userController = require("../controllers/userController");
+
+// Debugging: Cek apakah fungsi termuat (Akan muncul di terminal saat server start)
+if (!userController.createUser) {
+  console.error("CRITICAL ERROR: createUser is UNDEFINED in userRoutes.js!");
+  console.error("Check userController.js exports!");
+}
+
+const { createUser, getUsers, getUserById, updateUser, deleteUser } =
+  userController;
+
+const { protect, checkRole } = require("../middleware/authMiddleware");
+
+// Middleware perlindungan
 router.use(protect);
-// ---- DAN JUGA DI BARIS INI ----
-router.use(checkRole(["superadmin"])); // Menggunakan 'checkRole' yang sudah kita impor
+router.use(checkRole(["superadmin", "admin"]));
 
-// /api/users
-router.route("/").post(createUser).get(getUsers);
+// Definisi Rute
+router
+  .route("/")
+  .post(createUser) // Pastikan ini fungsi, bukan undefined
+  .get(getUsers);
 
-// /api/users/:id
 router.route("/:id").get(getUserById).put(updateUser).delete(deleteUser);
 
 module.exports = router;

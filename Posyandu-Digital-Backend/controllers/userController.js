@@ -1,59 +1,51 @@
 const bcrypt = require("bcryptjs");
-const { sequelize } = require("../config/database"); // Impor sequelize untuk transaksi
+const { sequelize } = require("../config/database");
+
+// Pastikan semua model ini ADA di folder models Anda
 const User = require("../models/User");
 const AdminProfile = require("../models/AdminProfile");
+const KaderProfile = require("../models/KaderProfile");
 const Desa = require("../models/Desa");
 const Kecamatan = require("../models/Kecamatan");
+const Posyandu = require("../models/Posyandu");
 
-/**
- * @desc    Membuat user baru (Admin atau Kader)
- * @route   POST /api/users
- * @access  Private/SuperAdmin
- */
+// --- 1. CREATE USER ---
 const createUser = async (req, res) => {
-  // Ambil semua data yang mungkin dari body
-  const { username, password, role, nama_lengkap, desa_id } = req.body;
+  const { username, password, role, nama_lengkap, desa_id, posyandu_id } =
+    req.body;
 
-  // Validasi dasar
   if (!username || !password || !role) {
     return res
       .status(400)
       .json({ message: "Username, password, dan role wajib diisi" });
   }
 
-  // --- LOGIKA BARU UNTUK ADMIN ---
-  if (role === "admin" && (!nama_lengkap || !desa_id)) {
-    return res
-      .status(400)
-      .json({ message: "Untuk admin, nama lengkap dan ID desa wajib diisi" });
-  }
-  // -----------------------------
-
-  const t = await sequelize.transaction(); // Mulai transaksi
+  const t = await sequelize.transaction();
 
   try {
     const userExists = await User.findOne({ where: { username } });
     if (userExists) {
-      await t.rollback(); // Batalkan transaksi jika user sudah ada
+      await t.rollback();
       return res.status(400).json({ message: "Username sudah terdaftar" });
     }
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 1. Buat entri di tabel user
+    // Buat User
     const newUser = await User.create(
       {
         username,
         password: hashedPassword,
         role,
+        // Superadmin langsung verified
+        is_verified: role === "superadmin" ? true : false,
       },
       { transaction: t }
     );
 
-    // --- LOGIKA BARU: Jika rolenya admin, buat juga profilnya ---
-    if (newUser.role === "admin") {
-      // 2. Buat entri di tabel admin_profiles
+    // Buat Profil Sesuai Role
+    if (role === "admin") {
       await AdminProfile.create(
         {
           nama_admin: nama_lengkap,
@@ -62,91 +54,79 @@ const createUser = async (req, res) => {
         },
         { transaction: t }
       );
+    } else if (role === "kader") {
+      await KaderProfile.create(
+        {
+          nama_kader: nama_lengkap,
+          user_id: newUser.id,
+          posyandu_id: posyandu_id,
+        },
+        { transaction: t }
+      );
     }
-    // (Nanti kita bisa tambahkan logika `else if (newUser.role === 'kader')` di sini)
-    // -----------------------------------------------------------
 
-    await t.commit(); // Selesaikan transaksi jika semua berhasil
-
-    // Kirim kembali data user tanpa password
+    await t.commit();
     res.status(201).json({
-      id: newUser.id,
-      username: newUser.username,
-      role: newUser.role,
+      message: "User berhasil dibuat",
+      user: { id: newUser.id, username: newUser.username, role: newUser.role },
     });
   } catch (error) {
-    await t.rollback(); // Batalkan semua jika ada error
+    await t.rollback();
     console.error("Error creating user:", error);
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
 
-/**
- * @desc    Mendapatkan semua user, bisa filter berdasarkan role
- * @route   GET /api/users?role=admin
- * @access  Private/SuperAdmin
- */
+// --- 2. GET USERS ---
 const getUsers = async (req, res) => {
   try {
     const { role } = req.query;
-    let users;
+    const queryOptions = {
+      where: {},
+      attributes: { exclude: ["password"] },
+      order: [["createdAt", "DESC"]],
+      include: [],
+    };
+
+    if (role) queryOptions.where.role = role;
 
     if (role === "admin") {
-      // --- LOGIKA BARU: Ambil user admin beserta data profil dan desanya ---
-      users = await User.findAll({
-        where: { role: "admin" },
-        attributes: { exclude: ["password"] }, // Jangan pernah kirim password
-        include: [
-          {
-            model: AdminProfile,
-            attributes: ["nama_admin"], // Ambil nama admin dari profil
-            include: [
-              {
-                model: Desa,
-                attributes: ["nama_desa"], // Ambil nama desa dari relasi
-                include: [
-                  {
-                    model: Kecamatan,
-                    attributes: ["nama_kecamatan"], // Ambil juga nama kecamatan
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-        order: [["createdAt", "DESC"]],
+      queryOptions.include.push({
+        model: AdminProfile,
+        include: [{ model: Desa, include: [Kecamatan] }],
       });
-    } else {
-      // Logika lama untuk role lain (misal: kader)
-      const whereClause = {};
-      if (role) {
-        whereClause.role = role;
-      }
-      users = await User.findAll({
-        where: whereClause,
-        attributes: { exclude: ["password"] },
-        order: [["createdAt", "DESC"]],
+    } else if (role === "kader") {
+      queryOptions.include.push({
+        model: KaderProfile,
+        include: [
+          { model: Posyandu, include: [{ model: Desa, include: [Kecamatan] }] },
+        ],
       });
     }
 
+    const users = await User.findAll(queryOptions);
     res.status(200).json(users);
   } catch (error) {
-    console.error("Error fetching users:", error);
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
 
-// ... (Fungsi getUserById, updateUser, deleteUser tetap sama untuk saat ini) ...
-const getUserById = async (req, res) => {
-  /* ... */
-};
-const updateUser = async (req, res) => {
-  /* ... */
-};
+// --- 3. DUMMY FUNCTIONS (Agar tidak error saat di-import) ---
+const getUserById = async (req, res) =>
+  res.json({ message: "Not implemented yet" });
+const updateUser = async (req, res) =>
+  res.json({ message: "Not implemented yet" });
 const deleteUser = async (req, res) => {
-  /* ... */
+  const { id } = req.params;
+  try {
+    await User.destroy({ where: { id } });
+    res.json({ message: "User deleted" });
+  } catch (e) {
+    res.status(500).json({ message: "Error deleting user" });
+  }
 };
 
+// --- PENTING: Export object harus lengkap ---
 module.exports = {
   createUser,
   getUsers,

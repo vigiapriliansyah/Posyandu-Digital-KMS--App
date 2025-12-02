@@ -24,13 +24,15 @@ fun SuperAdminDashboardScreen(
     onNavigateToKelolaAdmin: () -> Unit,
     onNavigateToKelolaKader: () -> Unit
 ) {
+    // PERBAIKAN DI SINI:
+    // Mengakses data dari dalam objek 'statistik' yang kita buat di DTO tadi
     val stats = listOf(
-        StatCardInfo("Admin Aktif", data.totalAdminAktif.toString(), Icons.Default.AdminPanelSettings),
-        StatCardInfo("Kader Aktif", data.totalKaderAktif.toString(), Icons.Default.Groups),
-        StatCardInfo("Desa Terdaftar", data.totalDesaTerdaftar.toString(), Icons.Default.HolidayVillage),
-        StatCardInfo("Posyandu Aktif", data.totalPosyanduAktif.toString(), Icons.Default.LocalHospital),
-        StatCardInfo("Balita Terpantau", data.totalBalitaTerpantau.toString(), Icons.Default.ChildCare),
-        StatCardInfo("Orang Tua", data.totalOrangTuaTerverifikasi.toString(), Icons.Default.FamilyRestroom)
+        StatCardInfo("Admin Aktif", data.statistik.totalAdminDesa.toString(), Icons.Default.AdminPanelSettings),
+        StatCardInfo("Kader Aktif", data.statistik.totalKader.toString(), Icons.Default.Groups),
+        StatCardInfo("Desa Terdaftar", data.statistik.totalDesa.toString(), Icons.Default.HolidayVillage),
+        StatCardInfo("Posyandu Aktif", data.statistik.totalPosyandu.toString(), Icons.Default.LocalHospital),
+        StatCardInfo("Balita Terpantau", data.statistik.totalBalita.toString(), Icons.Default.ChildCare),
+        StatCardInfo("Orang Tua", data.statistik.totalOrangTua.toString(), Icons.Default.FamilyRestroom)
     )
 
     Scaffold(
@@ -65,7 +67,6 @@ fun SuperAdminDashboardScreen(
     }
 }
 
-
 @Composable
 fun ActionButtons(
     onKelolaAdminClick: () -> Unit,
@@ -73,7 +74,7 @@ fun ActionButtons(
 ) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Button(
-            onClick = onKelolaAdminClick, // Menggunakan parameter
+            onClick = onKelolaAdminClick,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
@@ -83,7 +84,7 @@ fun ActionButtons(
             Text("Kelola Akun Admin Desa", fontSize = 16.sp)
         }
         OutlinedButton(
-            onClick = onKelolaKaderClick, // Menggunakan parameter
+            onClick = onKelolaKaderClick,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
@@ -95,4 +96,3 @@ fun ActionButtons(
         }
     }
 }
-

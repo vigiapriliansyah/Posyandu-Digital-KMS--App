@@ -19,19 +19,18 @@ const User = sequelize.define(
       allowNull: false,
     },
     role: {
-      // --- PERBAIKAN DI SINI: Gunakan huruf kecil untuk semua peran ---
       type: DataTypes.ENUM("superadmin", "admin", "kader", "orangtua"),
       allowNull: false,
+    },
+    // --- Pastikan kolom ini ada ---
+    is_verified: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
     },
   },
   {
     tableName: "users",
   }
 );
-
-(async () => {
-  await sequelize.sync();
-  console.log("User table synced with correct ENUM roles!");
-})();
 
 module.exports = User;

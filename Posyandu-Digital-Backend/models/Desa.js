@@ -1,6 +1,6 @@
 const { DataTypes } = require("sequelize");
 const { sequelize } = require("../config/database");
-const Kecamatan = require("./Kecamatan"); // Pastikan mengimpor Kecamatan
+const Kecamatan = require("./Kecamatan");
 
 const Desa = sequelize.define(
   "Desa",
@@ -18,7 +18,7 @@ const Desa = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: Kecamatan, // Menunjuk ke model Kecamatan
+        model: Kecamatan,
         key: "id",
       },
     },
@@ -26,18 +26,19 @@ const Desa = sequelize.define(
   {
     tableName: "desa",
     timestamps: true,
-    // Menambahkan unique constraint untuk kombinasi nama_desa dan kecamatan_id
-    // Ini mencegah adanya "Desa A" yang sama dua kali di "Kecamatan B"
+    // PERBAIKAN: Index komposit (nama_desa + kecamatan_id harus unik)
+    // Artinya: Di satu kecamatan, tidak boleh ada 2 desa dengan nama sama.
+    // TAPI: Satu kecamatan boleh punya banyak desa dengan nama berbeda.
     indexes: [
       {
         unique: true,
-        fields: ["nama_desa", "kecamatan_id"],
+        fields: ["nama_desa", "kecamatan_id"], // Kombinasi keduanya yang dicek
       },
     ],
   }
 );
 
-// Mendefinisikan relasi: Satu Kecamatan punya banyak Desa
+// Relasi
 Kecamatan.hasMany(Desa, { foreignKey: "kecamatan_id" });
 Desa.belongsTo(Kecamatan, { foreignKey: "kecamatan_id" });
 

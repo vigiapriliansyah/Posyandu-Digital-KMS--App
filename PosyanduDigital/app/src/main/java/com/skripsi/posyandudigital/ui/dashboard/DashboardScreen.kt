@@ -8,11 +8,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.skripsi.posyandudigital.ui.theme.BackgroundLight
 
@@ -25,16 +29,26 @@ fun DashboardScreen(
     onNavigateToKelolaKader: () -> Unit
 ) {
     val logoutCompleted = viewModel.logoutCompleted.value
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // Auto Refresh saat kembali ke halaman ini
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.loadDashboardData(userRole)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     LaunchedEffect(logoutCompleted) {
         if (logoutCompleted) {
             onLogout()
             viewModel.resetLogoutState()
         }
-    }
-
-    LaunchedEffect(key1 = userRole) {
-        viewModel.loadDashboardData(userRole)
     }
 
     val state = viewModel.dashboardState.value
@@ -59,10 +73,16 @@ fun DashboardScreen(
                     onNavigateToKelolaKader = onNavigateToKelolaKader
                 )
             }
-            is DashboardState.AdminData -> AdminDesaDashboardScreen(data = state.data, onLogout = { viewModel.logout() })
+            is DashboardState.AdminData -> {
+                // PERBAIKAN: Menghubungkan navigasi Kader ke Dashboard Admin
+                AdminDesaDashboardScreen(
+                    data = state.data,
+                    onLogout = { viewModel.logout() },
+                    onNavigateToKelolaKader = onNavigateToKelolaKader
+                )
+            }
             is DashboardState.KaderData -> KaderDashboardScreen(data = state.data, onLogout = { viewModel.logout() })
             is DashboardState.OrangTuaData -> OrangTuaDashboardScreen(data = state.data, onLogout = { viewModel.logout() })
         }
     }
 }
-
