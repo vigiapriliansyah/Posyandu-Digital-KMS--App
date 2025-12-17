@@ -5,10 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.MonitorWeight
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -106,7 +103,8 @@ fun ActionButtonsForAdmin() {
 }
 
 
-// --- KOMPONEN BARU UNTUK KADER ---
+// --- KOMPONEN UNTUK KADER (DIPERBAIKI) ---
+// Perbaikan: Menambahkan parameter yang dibutuhkan oleh KaderDashboardScreen
 data class KaderStatInfo(val title: String, val value: String, val color: Color)
 
 @Composable
@@ -116,7 +114,7 @@ fun KaderStatCard(info: KaderStatInfo) {
         colors = CardDefaults.cardColors(containerColor = info.color),
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1f) // Membuat card menjadi persegi
+            .aspectRatio(1f)
     ) {
         Column(
             modifier = Modifier.fillMaxSize().padding(8.dp),
@@ -142,38 +140,59 @@ fun KaderStatCard(info: KaderStatInfo) {
 }
 
 @Composable
-fun KaderActionButtons() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        ActionButton(text = "Kelola Kader", modifier = Modifier.weight(1f))
-        ActionButton(text = "Input Pencatatan dan Penimbangan", modifier = Modifier.weight(1f))
-        ActionButton(text = "Verifikasi Orang Tua", modifier = Modifier.weight(1f))
+fun KaderActionButtons(
+    verifCount: Int, // Parameter untuk jumlah verifikasi
+    onVerifikasiClick: () -> Unit, // Callback klik verifikasi
+    onDaftarBalitaClick: () -> Unit // Callback klik daftar balita
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Tombol Verifikasi
+        Button(
+            onClick = onVerifikasiClick,
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (verifCount > 0) WarningYellow else PrimaryBlue
+            )
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.HowToReg, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Verifikasi Orang Tua ($verifCount)", fontSize = 16.sp)
+            }
+        }
+
+        // Tombol Input (Placeholder dulu)
+        OutlinedButton(
+            onClick = { /* Nanti disambungkan ke Input Screen */ },
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, PrimaryBlue),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimaryBlue)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.EditNote, contentDescription = null, tint = PrimaryBlue)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Input Penimbangan Balita", fontSize = 16.sp)
+            }
+        }
+
+        // Tombol Daftar Balita
+        OutlinedButton(
+            onClick = onDaftarBalitaClick,
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, TextSecondary),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.List, contentDescription = null, tint = TextSecondary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Lihat Daftar Balita", fontSize = 16.sp)
+            }
+        }
     }
 }
-
-@Composable
-fun ActionButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit = {}) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = modifier.height(80.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = Color.LightGray.copy(alpha = 0.1f)
-        ),
-        border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.3f))
-    ) {
-        Text(
-            text = text,
-            textAlign = TextAlign.Center,
-            fontSize = 12.sp,
-            lineHeight = 14.sp,
-            color = TextSecondary
-        )
-    }
-}
-
 
 // --- Komponen untuk Orang Tua ---
 @Composable

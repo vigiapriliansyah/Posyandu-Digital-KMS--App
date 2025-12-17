@@ -15,9 +15,13 @@ const generateToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "30d" });
 };
 
-// --- REGISTER (DIPERBAIKI: VALIDASI FLEKSIBEL) ---
+// Fungsi helper bikin kode angka 6 digit
+const generateVerificationCode = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+// --- REGISTER ---
 const registerUser = async (req, res) => {
-  // 1. Ambil 'role' dari body. Default ke 'orangtua' jika kosong.
   const {
     username,
     password,
@@ -27,17 +31,14 @@ const registerUser = async (req, res) => {
     alamat,
     posyandu_id,
   } = req.body;
+  
   const role = inputRole || "orangtua";
 
-  // 2. Validasi Dasar (Username & Password Wajib)
   if (!username || !password) {
-    return res
-      .status(400)
-      .json({ message: "Username dan Password wajib diisi" });
+    return res.status(400).json({ message: "Username dan Password wajib diisi" });
   }
 
-  // 3. Validasi Khusus: Hanya Orang Tua yang wajib isi Nama Ibu
-  // Superadmin, Admin, Kader akan LEWAT (SKIP) validasi ini
+  // Validasi khusus Orang Tua
   if (role === "orangtua" && !nama_ibu) {
     return res.status(400).json({ message: "Data wajib diisi (Nama Ibu)" });
   }
@@ -54,21 +55,31 @@ const registerUser = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 4. Logika Verifikasi: Superadmin langsung verified
+    // --- LOGIKA VERIFIKASI BARU ---
+    // Superadmin langsung verified. Orang tua butuh kode.
     const isVerified = role === "superadmin";
+    let verificationCode = null;
 
-    // 5. Buat User
+    if (role === "orangtua") {
+        verificationCode = generateVerificationCode();
+        // Cek clash kode (sangat jarang terjadi, tapi good practice)
+        // Disini kita skip cek clash kompleks demi kesederhanaan skripsi
+    }
+
+    // 1. Buat User
     const newUser = await User.create(
       {
         username,
         password: hashedPassword,
         role,
         is_verified: isVerified,
+        kode_verifikasi: verificationCode, // Simpan kode
+        status: isVerified ? 'aktif' : 'pending_verification'
       },
       { transaction: t }
     );
 
-    // 6. Buat Profile (Hanya untuk Orang Tua)
+    // 2. Buat Profile
     if (role === "orangtua") {
       await OrangTuaProfile.create(
         {
@@ -80,13 +91,21 @@ const registerUser = async (req, res) => {
         },
         { transaction: t }
       );
+    } else if (role === "admin") {
+       // ... (Logika admin profile jika ada register admin lewat sini)
     }
 
     await t.commit();
 
     res.status(201).json({
-      message: `Registrasi ${role} berhasil!`,
-      user: { id: newUser.id, username: newUser.username, role: newUser.role },
+      message: `Registrasi berhasil! Kode Verifikasi Anda: ${verificationCode}`,
+      user: { 
+          id: newUser.id, 
+          username: newUser.username, 
+          role: newUser.role,
+          // Kirim balik kode agar bisa ditampilkan di Android setelah register sukses
+          kode_verifikasi: verificationCode 
+      },
     });
   } catch (error) {
     await t.rollback();
@@ -101,9 +120,22 @@ const loginUser = async (req, res) => {
     const user = await User.findOne({ where: { username } });
 
     if (user && (await bcrypt.compare(password, user.password))) {
-      // Cek Verifikasi (Khusus Orang Tua)
-      if (user.role === "orangtua" && user.is_verified === false) {
-        return res.status(403).json({ message: "Akun belum diverifikasi." });
+      
+      // Cek Verifikasi
+      if (user.role === "orangtua" && !user.is_verified) {
+        // PERUBAHAN: Jika belum verified, tetap return token TAPI beri flag khusus
+        // atau return error code spesifik agar Android bisa mengarahkan ke layar "Tunggu Verifikasi"
+        // Untuk skripsi ini, kita return user dengan kode_verifikasi agar bisa ditampilkan lagi
+        return res.status(200).json({
+            message: "Akun belum diverifikasi",
+            require_verification: true,
+            user: { 
+                id: user.id, 
+                username: user.username, 
+                role: user.role,
+                kode_verifikasi: user.kode_verifikasi 
+            }
+        });
       }
 
       res.status(200).json({
@@ -150,15 +182,12 @@ const getMe = async (req, res) => {
   }
 };
 
-// --- INIT DATABASE (Opsional) ---
 const initDatabase = async (req, res) => {
   try {
     await sequelize.sync({ alter: true });
-    res.status(200).json({ message: "Struktur Database berhasil diperbarui!" });
+    res.status(200).json({ message: "Database synced!" });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Gagal init database", error: error.message });
+    res.status(500).json({ message: "Sync failed", error: error.message });
   }
 };
 

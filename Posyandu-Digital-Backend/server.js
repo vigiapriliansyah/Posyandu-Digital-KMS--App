@@ -11,6 +11,8 @@ const userRoutes = require("./routes/userRoutes");
 const desaRoutes = require("./routes/desaRoutes");
 const kecamatanRoutes = require("./routes/kecamatanRoutes");
 const posyanduRoutes = require("./routes/posyanduRoutes");
+const kaderRoutes = require("./routes/kaderRoutes");
+const anakRoutes = require("./routes/anakRoutes");
 
 const app = express();
 app.use(express.json());
@@ -22,6 +24,8 @@ app.use("/api/users", userRoutes);
 app.use("/api/desa", desaRoutes);
 app.use("/api/kecamatan", kecamatanRoutes);
 app.use("/api/posyandu", posyanduRoutes);
+app.use("/api/kader", kaderRoutes);
+app.use("/api/anak", anakRoutes);
 
 // --- FUNGSI SEEDER KECAMATAN ---
 const seedKecamatan = async () => {

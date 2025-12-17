@@ -22,11 +22,23 @@ const User = sequelize.define(
       type: DataTypes.ENUM("superadmin", "admin", "kader", "orangtua"),
       allowNull: false,
     },
-    // --- Pastikan kolom ini ada ---
-    is_verified: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
+    status: {
+        type: DataTypes.ENUM("aktif", "nonaktif", "pending_verification"),
+        defaultValue: "aktif",
+        allowNull: false
     },
+    // --- SESUAI SKEMA ANDA ---
+    kode_verifikasi: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: true,
+    },
+    // is_verified bisa dihapus jika sudah pakai 'status', 
+    // tapi untuk kompatibilitas kode lama, kita simpan dulu atau map 'status' ke boolean
+    is_verified: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    }
   },
   {
     tableName: "users",

@@ -5,6 +5,6 @@ const { protect } = require("../middleware/authMiddleware");
 
 // Mendefinisikan rute /api/kecamatan
 // Dilindungi oleh 'protect' agar hanya user yang sudah login yang bisa mengakses
-router.route("/").get(protect, getAllKecamatan);
+router.route("/").get(getAllKecamatan);
 
 module.exports = router;

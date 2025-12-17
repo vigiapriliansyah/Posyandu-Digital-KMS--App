@@ -2,46 +2,30 @@ package com.skripsi.posyandudigital.ui.dashboard
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.skripsi.posyandudigital.ui.theme.BackgroundLight
 
 @Composable
 fun DashboardScreen(
     userRole: String,
     onLogout: () -> Unit,
-    viewModel: DashboardViewModel = viewModel(),
-    onNavigateToKelolaAdmin: () -> Unit,
-    onNavigateToKelolaKader: () -> Unit
+    onNavigateToKelolaAdmin: () -> Unit = {},
+    onNavigateToKelolaKader: () -> Unit = {},
+    onNavigateToVerifikasi: () -> Unit = {},
+    // --- TAMBAHAN: Parameter ini wajib ada agar MainActivity tidak error ---
+    onNavigateToDaftarBalita: () -> Unit = {},
+    viewModel: DashboardViewModel = viewModel()
 ) {
+    val state = viewModel.dashboardState.value
     val logoutCompleted = viewModel.logoutCompleted.value
-    val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Auto Refresh saat kembali ke halaman ini
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                viewModel.loadDashboardData(userRole)
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
+    LaunchedEffect(userRole) {
+        viewModel.loadDashboardData(userRole)
     }
 
     LaunchedEffect(logoutCompleted) {
@@ -51,19 +35,16 @@ fun DashboardScreen(
         }
     }
 
-    val state = viewModel.dashboardState.value
-
-    Surface(modifier = Modifier.fillMaxSize(), color = BackgroundLight) {
+    Box(modifier = Modifier.fillMaxSize()) {
         when (state) {
             is DashboardState.Loading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
             is DashboardState.Error -> {
-                Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                    Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
-                }
+                Text(
+                    text = state.message,
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
             is DashboardState.SuperAdminData -> {
                 SuperAdminDashboardScreen(
@@ -74,15 +55,27 @@ fun DashboardScreen(
                 )
             }
             is DashboardState.AdminData -> {
-                // PERBAIKAN: Menghubungkan navigasi Kader ke Dashboard Admin
                 AdminDesaDashboardScreen(
                     data = state.data,
                     onLogout = { viewModel.logout() },
                     onNavigateToKelolaKader = onNavigateToKelolaKader
                 )
             }
-            is DashboardState.KaderData -> KaderDashboardScreen(data = state.data, onLogout = { viewModel.logout() })
-            is DashboardState.OrangTuaData -> OrangTuaDashboardScreen(data = state.data, onLogout = { viewModel.logout() })
+            is DashboardState.KaderData -> {
+                // --- UPDATE: Meneruskan navigasi ke KaderDashboardScreen ---
+                KaderDashboardScreen(
+                    data = state.data,
+                    onLogout = { viewModel.logout() },
+                    onNavigateToVerifikasi = onNavigateToVerifikasi,
+                    onNavigateToDaftarBalita = onNavigateToDaftarBalita
+                )
+            }
+            is DashboardState.OrangTuaData -> {
+                OrangTuaDashboardScreen(
+                    data = state.data,
+                    onLogout = { viewModel.logout() }
+                )
+            }
         }
     }
 }

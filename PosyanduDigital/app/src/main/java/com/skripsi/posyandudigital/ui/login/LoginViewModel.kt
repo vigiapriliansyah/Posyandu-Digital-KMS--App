@@ -15,58 +15,58 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
     private val sessionManager = SessionManager(getApplication())
 
-    // --- STATES UNTUK UI ---
-    private val _username = mutableStateOf("")
-    val username: State<String> = _username
+    // --- STATES ---
+    val username = mutableStateOf("")
+    val password = mutableStateOf("")
+    val passwordVisible = mutableStateOf(false)
+    val isLoading = mutableStateOf(false)
+    val errorMessage = mutableStateOf<String?>(null)
 
-    private val _password = mutableStateOf("")
-    val password: State<String> = _password
+    // State Navigasi
+    val loggedInUser = mutableStateOf<UserDto?>(null)
+    // State baru: Jika butuh verifikasi
+    val pendingVerificationUser = mutableStateOf<UserDto?>(null)
 
-    private val _passwordVisible = mutableStateOf(false)
-    val passwordVisible: State<Boolean> = _passwordVisible
+    // --- ACTIONS ---
+    fun onUsernameChange(newVal: String) { username.value = newVal }
+    fun onPasswordChange(newVal: String) { password.value = newVal }
+    fun togglePasswordVisibility() { passwordVisible.value = !passwordVisible.value }
 
-    private val _isLoading = mutableStateOf(false)
-    val isLoading: State<Boolean> = _isLoading
+    fun onNavigationDone() {
+        loggedInUser.value = null
+        pendingVerificationUser.value = null
+    }
 
-    private val _errorMessage = mutableStateOf<String?>(null)
-    val errorMessage: State<String?> = _errorMessage
-
-    private val _loggedInUser = mutableStateOf<UserDto?>(null)
-    val loggedInUser: State<UserDto?> = _loggedInUser
-
-
-    // --- FUNGSI UNTUK UI ---
-    fun onUsernameChange(newUsername: String) { _username.value = newUsername }
-    fun onPasswordChange(newPassword: String) { _password.value = newPassword }
-    fun togglePasswordVisibility() { _passwordVisible.value = !_passwordVisible.value }
-    fun onNavigationDone() { _loggedInUser.value = null }
-
-
-    // --- LOGIKA UTAMA ---
     fun login() {
-        if (_isLoading.value) return
-        _errorMessage.value = null
+        if (isLoading.value) return
+        errorMessage.value = null
 
         viewModelScope.launch {
-            _isLoading.value = true
+            isLoading.value = true
             try {
-                val request = LoginRequest(username = _username.value, password = _password.value)
+                val request = LoginRequest(username.value, password.value)
                 val response = RetrofitClient.instance.login(request)
 
                 if (response.isSuccessful && response.body() != null) {
-                    val loginResponse = response.body()!!
-                    sessionManager.saveSession(loginResponse.token, loginResponse.user.role)
-                    _loggedInUser.value = loginResponse.user
-                    println("Login & Sesi Berhasil Disimpan! Role: ${loginResponse.user.role}")
+                    val body = response.body()!!
+
+                    // Cek apakah butuh verifikasi?
+                    if (body.requireVerification) {
+                        // Jangan simpan sesi login, arahkan ke layar kode
+                        pendingVerificationUser.value = body.user
+                    } else {
+                        // Login Normal
+                        sessionManager.saveSession(body.token, body.user.role)
+                        loggedInUser.value = body.user
+                    }
                 } else {
-                    _errorMessage.value = "Login Gagal: Username atau Password salah."
+                    errorMessage.value = "Login Gagal: Periksa username/password."
                 }
             } catch (e: Exception) {
-                _errorMessage.value = "Error: Tidak bisa terhubung ke server."
+                errorMessage.value = "Error: Tidak bisa terhubung ke server."
             } finally {
-                _isLoading.value = false
+                isLoading.value = false
             }
         }
     }
 }
-

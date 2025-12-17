@@ -2,6 +2,7 @@ package com.skripsi.posyandudigital.ui.login
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,6 +33,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 fun LoginScreen(
     onLoginSuccess: (userRole: String) -> Unit,
+    onNavigateToRegister: () -> Unit,
+    // --- UPDATE: Parameter ini wajib ada sesuai MainActivity ---
+    onNavigateToVerificationCode: (String) -> Unit,
     viewModel: LoginViewModel = viewModel()
 ) {
     val username = viewModel.username.value
@@ -39,15 +43,26 @@ fun LoginScreen(
     val passwordVisible = viewModel.passwordVisible.value
     val isLoading = viewModel.isLoading.value
     val errorMessage = viewModel.errorMessage.value
+
     val loggedInUser = viewModel.loggedInUser.value
+    val pendingUser = viewModel.pendingVerificationUser.value // State user pending
 
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(loggedInUser, errorMessage) {
+    LaunchedEffect(loggedInUser, pendingUser, errorMessage) {
+        // 1. Login Sukses & Aktif
         loggedInUser?.let { user ->
             onLoginSuccess(user.role)
             viewModel.onNavigationDone()
         }
+
+        // 2. Login Sukses tapi BUTUH VERIFIKASI (Arahkan ke layar kode)
+        pendingUser?.let { user ->
+            // Pastikan kode tidak null, jika null kirim string kosong atau handle error
+            onNavigateToVerificationCode(user.kodeVerifikasi ?: "")
+            viewModel.onNavigationDone()
+        }
+
         errorMessage?.let {
             snackbarHostState.showSnackbar(message = it)
         }
@@ -62,10 +77,7 @@ fun LoginScreen(
                 .padding(paddingValues)
                 .background(
                     brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.White,
-                            Color(0xFFE1BEE7)
-                        )
+                        colors = listOf(Color.White, Color(0xFFE1BEE7))
                     )
                 )
         ) {
@@ -136,10 +148,7 @@ fun LoginScreen(
                                 val image =
                                     if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility
                                 IconButton(onClick = { viewModel.togglePasswordVisibility() }) {
-                                    Icon(
-                                        imageVector = image,
-                                        contentDescription = "Toggle Password Visibility"
-                                    )
+                                    Icon(imageVector = image, contentDescription = "Toggle Password Visibility")
                                 }
                             },
                             colors = OutlinedTextFieldDefaults.colors(
@@ -177,6 +186,17 @@ fun LoginScreen(
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Belum punya akun? ")
+                    Text(
+                        text = "Daftar di sini",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable { onNavigateToRegister() }
+                    )
+                }
             }
         }
     }
@@ -187,11 +207,7 @@ fun TopRightArt(modifier: Modifier = Modifier) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val secondaryColor = Color(0xFFCE93D8)
 
-    Canvas(
-        modifier = modifier
-            .size(200.dp)
-            .clip(RoundedCornerShape(bottomStart = 100.dp))
-    ) {
+    Canvas(modifier = modifier.size(200.dp).clip(RoundedCornerShape(bottomStart = 100.dp))) {
         val path = Path().apply {
             moveTo(size.width, 0f)
             lineTo(size.width, size.height)
@@ -215,11 +231,7 @@ fun BottomLeftArt(modifier: Modifier = Modifier) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val secondaryColor = Color(0xFFCE93D8)
 
-    Canvas(
-        modifier = modifier
-            .size(200.dp)
-            .clip(RoundedCornerShape(topEnd = 100.dp))
-    ) {
+    Canvas(modifier = modifier.size(200.dp).clip(RoundedCornerShape(topEnd = 100.dp))) {
         val path = Path().apply {
             moveTo(0f, size.height)
             lineTo(0f, 0f)

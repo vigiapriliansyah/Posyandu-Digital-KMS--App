@@ -9,7 +9,7 @@ const { protect, checkRole } = require("../middleware/authMiddleware");
 // /api/posyandu
 router
   .route("/")
-  .get(protect, getAllPosyandu) // Semua user login bisa melihat daftar posyandu
+  .get(getAllPosyandu) // Semua user login bisa melihat daftar posyandu
   // PERBAIKAN: Tambahkan "admin" ke dalam array checkRole
   .post(protect, checkRole(["superadmin", "admin"]), createPosyandu);
 

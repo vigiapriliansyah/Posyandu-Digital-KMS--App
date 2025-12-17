@@ -1,6 +1,6 @@
 const { DataTypes } = require("sequelize");
 const { sequelize } = require("../config/database");
-const OrangTuaProfile = require("./OrangTuaProfile");
+const Posyandu = require("./Posyandu");
 
 const Anak = sequelize.define(
   "Anak",
@@ -10,41 +10,35 @@ const Anak = sequelize.define(
       autoIncrement: true,
       primaryKey: true,
     },
+    nik_anak: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: true,
+    },
     nama_anak: {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    nik_anak: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    tempat_lahir: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
     tanggal_lahir: {
-      type: DataTypes.DATEONLY, // Format YYYY-MM-DD
+      type: DataTypes.DATEONLY,
       allowNull: false,
     },
     jenis_kelamin: {
       type: DataTypes.ENUM("L", "P"),
       allowNull: false,
     },
-    berat_badan_lahir: {
-      type: DataTypes.FLOAT, // dalam Kg
-      allowNull: true,
-    },
-    tinggi_badan_lahir: {
-      type: DataTypes.FLOAT, // dalam Cm
-      allowNull: true,
-    },
-    orangtua_id: {
+    posyandu_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: OrangTuaProfile,
+        model: Posyandu,
         key: "id",
       },
+    },
+    status_anak: {
+      type: DataTypes.ENUM("aktif", "pindah", "lulus", "meninggal"),
+      defaultValue: "aktif",
+      allowNull: false,
     },
   },
   {
@@ -53,8 +47,8 @@ const Anak = sequelize.define(
   }
 );
 
-// Relasi: Satu Orang Tua punya banyak Anak
-OrangTuaProfile.hasMany(Anak, { foreignKey: "orangtua_id" });
-Anak.belongsTo(OrangTuaProfile, { foreignKey: "orangtua_id" });
+// Relasi: Anak milik satu Posyandu
+Posyandu.hasMany(Anak, { foreignKey: "posyandu_id" });
+Anak.belongsTo(Posyandu, { foreignKey: "posyandu_id" });
 
 module.exports = Anak;
