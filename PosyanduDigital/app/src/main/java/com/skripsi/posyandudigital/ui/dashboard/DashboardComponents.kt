@@ -50,12 +50,15 @@ fun StatCard(info: StatCardInfo, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun ActionButtons() {
+fun SuperAdminActionButtons(
+    onKelolaAdminClick: () -> Unit,
+    onKelolaKaderClick: () -> Unit
+) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Button(onClick = { /* Navigasi ke Kelola Akun Admin */ }, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)) {
+        Button(onClick = onKelolaAdminClick, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)) {
             Text("Kelola Akun Admin Desa", fontSize = 16.sp)
         }
-        OutlinedButton(onClick = { /* Navigasi ke Kelola Akun Kader */ }, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, PrimaryBlue), colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimaryBlue)) {
+        OutlinedButton(onClick = onKelolaKaderClick, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, PrimaryBlue), colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimaryBlue)) {
             Text("Kelola Akun Kader", fontSize = 16.sp)
         }
     }
@@ -91,20 +94,17 @@ fun StatCardWithColor(info: StatCardInfoWithColor, modifier: Modifier = Modifier
 }
 
 @Composable
-fun ActionButtonsForAdmin() {
+fun ActionButtonsForAdmin(
+    onKelolaKaderClick: () -> Unit
+) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Button(onClick = { /* Navigasi ke Kelola Kader */ }, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)) {
+        Button(onClick = onKelolaKaderClick, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)) {
             Text("Kelola Kader", fontSize = 16.sp)
-        }
-        OutlinedButton(onClick = { /* Navigasi ke Input Pencatatan */ }, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, PrimaryBlue), colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimaryBlue)) {
-            Text("Input Pencatatan & Penimbangan", fontSize = 16.sp)
         }
     }
 }
 
-
-// --- KOMPONEN UNTUK KADER (DIPERBAIKI) ---
-// Perbaikan: Menambahkan parameter yang dibutuhkan oleh KaderDashboardScreen
+// --- KOMPONEN UNTUK KADER ---
 data class KaderStatInfo(val title: String, val value: String, val color: Color)
 
 @Composable
@@ -141,12 +141,12 @@ fun KaderStatCard(info: KaderStatInfo) {
 
 @Composable
 fun KaderActionButtons(
-    verifCount: Int, // Parameter untuk jumlah verifikasi
-    onVerifikasiClick: () -> Unit, // Callback klik verifikasi
-    onDaftarBalitaClick: () -> Unit // Callback klik daftar balita
+    verifCount: Int,
+    onVerifikasiClick: () -> Unit,
+    onInputPenimbanganClick: () -> Unit,
+    onDaftarBalitaClick: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // Tombol Verifikasi
         Button(
             onClick = onVerifikasiClick,
             modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -162,9 +162,8 @@ fun KaderActionButtons(
             }
         }
 
-        // Tombol Input (Placeholder dulu)
         OutlinedButton(
-            onClick = { /* Nanti disambungkan ke Input Screen */ },
+            onClick = onInputPenimbanganClick,
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(12.dp),
             border = BorderStroke(1.dp, PrimaryBlue),
@@ -177,7 +176,6 @@ fun KaderActionButtons(
             }
         }
 
-        // Tombol Daftar Balita
         OutlinedButton(
             onClick = onDaftarBalitaClick,
             modifier = Modifier.fillMaxWidth().height(56.dp),

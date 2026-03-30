@@ -9,9 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -23,7 +21,8 @@ import com.skripsi.posyandudigital.ui.theme.*
 fun AdminDesaDashboardScreen(
     data: AdminDashboardDto,
     onLogout: () -> Unit,
-    onNavigateToKelolaKader: () -> Unit
+    onNavigateToKelolaKader: () -> Unit,
+    onNavigateToDaftarBalita: () -> Unit
 ) {
     val stats = listOf(
         StatCardInfoWithColor("Total Balita", data.totalBalitaTerpantau.toString(), Icons.Default.ChildCare),
@@ -57,22 +56,25 @@ fun AdminDesaDashboardScreen(
         ) {
             Text(data.namaDesa ?: "Nama Desa", style = MaterialTheme.typography.titleMedium, color = TextSecondary, modifier = Modifier.padding(bottom = 24.dp))
 
-            // Menggunakan komponen yang sudah ada di DashboardComponent.kt
+            // Menggunakan komponen StatsGridForAdmin yang ada di DashboardComponents.kt
             StatsGridForAdmin(stats = stats)
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Tombol Aksi (Saya ganti namanya agar tidak bentrok dengan yang ada di DashboardComponent)
-            AdminDesaActionButtons(onKelolaKaderClick = onNavigateToKelolaKader)
+            // Tombol Aksi dipanggil di sini
+            AdminDesaActionButtons(
+                onKelolaKaderClick = onNavigateToKelolaKader,
+                onInputPenimbanganClick = onNavigateToDaftarBalita
+            )
         }
     }
 }
 
-// --- Komponen Tombol Khusus Admin Desa ---
-// Kita buat dengan nama baru agar tidak bentrok dengan 'ActionButtonsForAdmin' di DashboardComponent.kt
+// --- Komponen Tombol Khusus Admin Desa (Ditempatkan langsung di sini agar tidak error) ---
 @Composable
 fun AdminDesaActionButtons(
-    onKelolaKaderClick: () -> Unit
+    onKelolaKaderClick: () -> Unit,
+    onInputPenimbanganClick: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Button(
@@ -83,15 +85,14 @@ fun AdminDesaActionButtons(
         ) {
             Text("Kelola Kader", fontSize = 16.sp)
         }
-
         OutlinedButton(
-            onClick = { /* Nanti Saja */ },
+            onClick = onInputPenimbanganClick,
             modifier = Modifier.fillMaxWidth().height(50.dp),
             shape = RoundedCornerShape(12.dp),
             border = BorderStroke(1.dp, PrimaryBlue),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimaryBlue)
         ) {
-            Text("Input Pencatatan & Penimbangan", fontSize = 16.sp)
+            Text("Lihat Daftar Balita", fontSize = 16.sp)
         }
     }
 }

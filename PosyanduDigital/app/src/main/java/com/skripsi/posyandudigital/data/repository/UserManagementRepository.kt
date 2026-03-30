@@ -23,7 +23,8 @@ interface UserManagementRepository {
 
     // Verifikasi
     fun getPendingVerifications(): Flow<ResultWrapper<List<PendingOrangTuaDto>>>
-
-    // UPDATE: Menggunakan Kode Verifikasi (String) bukan User ID (Int)
+    fun verifyOrangTua(userId: Int): Flow<ResultWrapper<Unit>>
+    fun rejectOrangTua(userId: Int): Flow<ResultWrapper<Unit>>
     fun verifyByCode(code: String): Flow<ResultWrapper<Unit>>
 }
+

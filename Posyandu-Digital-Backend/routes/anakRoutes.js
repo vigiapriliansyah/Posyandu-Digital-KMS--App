@@ -2,20 +2,21 @@ const express = require("express");
 const router = express.Router();
 const {
   createAnak,
-  getAnakByPosyandu,
+  getAnakList, 
   getOrangTuaVerified,
 } = require("../controllers/anakController");
 const { protect, checkRole } = require("../middleware/authMiddleware");
 
-// Lindungi rute: Hanya Kader yang boleh akses manajemen anak (sementara ini)
+// Lindungi rute: Semua yang mengakses harus punya token
 router.use(protect);
-router.use(checkRole(["kader", "admin", "superadmin"])); // Admin juga boleh lihat
 
-// GET /api/anak -> List Anak di Posyandu user
-// POST /api/anak -> Tambah Anak
-router.route("/").get(getAnakByPosyandu).post(createAnak);
+// POST /api/anak -> Tambah Anak (Orang Tua & Kader)
+router.post("/", checkRole(["admin", "kader", "orangtua"]), createAnak);
 
-// GET /api/anak/orangtua -> List Orang Tua untuk Dropdown
-router.get("/orangtua", getOrangTuaVerified);
+// GET /api/anak -> List Anak di Posyandu user (Orang Tua & Kader)
+router.get("/", checkRole(["admin", "kader", "orangtua"]), getAnakList);
+
+// GET /api/anak/orangtua -> List Orang Tua untuk Dropdown Kader
+router.get("/orangtua", checkRole(["admin", "kader"]), getOrangTuaVerified);
 
 module.exports = router;

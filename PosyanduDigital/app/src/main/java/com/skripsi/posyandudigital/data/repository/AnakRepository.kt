@@ -1,5 +1,7 @@
 package com.skripsi.posyandudigital.data.repository
 
+import com.skripsi.posyandudigital.data.local.AnakDao
+import com.skripsi.posyandudigital.data.local.AnakEntity
 import com.skripsi.posyandudigital.data.remote.api.ApiService
 import com.skripsi.posyandudigital.data.remote.dto.*
 import com.skripsi.posyandudigital.data.session.SessionManager
@@ -10,27 +12,67 @@ import kotlinx.coroutines.flow.flow
 
 class AnakRepository(
     private val apiService: ApiService,
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    private val anakDao: AnakDao // TAMBAHAN UNTUK OFFLINE: Memasukkan DAO Anak
 ) {
     private suspend fun getToken(): String? = sessionManager.getToken().firstOrNull()
 
-    // Fungsi mengambil daftar anak
+    // Fungsi mengambil daftar anak (OFFLINE-FIRST)
     fun getAnakList(): Flow<ResultWrapper<List<AnakDetailDto>>> = flow {
         emit(ResultWrapper.Loading)
+
+        // 1. Tampilkan data dari Database Lokal (HP) terlebih dahulu
+        val localData = anakDao.getAllAnak()
+        if (localData.isNotEmpty()) {
+            val mappedLocal = localData.map {
+                AnakDetailDto(
+                    id = it.id,
+                    namaAnak = it.namaAnak,
+                    jenisKelamin = it.jenisKelamin,
+                    tanggalLahir = it.tanggalLahir ?: "",
+                    umurBulan = it.umurBulan,
+                    orangTua = OrangTuaSimpleDto(id = 0, namaIbu = it.namaIbu) // Mapping data orang tua
+                )
+            }
+            emit(ResultWrapper.Success(mappedLocal))
+        }
+
         try {
-            val token = getToken() ?: return@flow emit(ResultWrapper.Error("Sesi habis"))
+            // 2. Coba sinkronisasi mengambil data terbaru dari Server
+            val token = getToken() ?: throw Exception("Sesi habis")
             val response = apiService.getAnakList("Bearer $token")
+
             if (response.isSuccessful && response.body() != null) {
-                emit(ResultWrapper.Success(response.body()!!))
-            } else {
-                emit(ResultWrapper.Error("Gagal memuat data anak: ${response.code()}"))
+                val apiData = response.body()!!
+
+                // 3. Hapus data lama, lalu simpan data terbaru ke HP
+                anakDao.deleteAll()
+                val entities = apiData.map {
+                    AnakEntity(
+                        id = it.id,
+                        namaAnak = it.namaAnak,
+                        jenisKelamin = it.jenisKelamin,
+                        tanggalLahir = it.tanggalLahir,
+                        umurBulan = it.umurBulan ?: 0,
+                        namaIbu = it.orangTua?.namaIbu ?: "Belum terhubung"
+                    )
+                }
+                anakDao.insertAll(entities)
+
+                // 4. Update tampilan layar dengan data yang paling baru
+                emit(ResultWrapper.Success(apiData))
+            } else if (localData.isEmpty()) {
+                emit(ResultWrapper.Error("Gagal memuat daftar balita dari server"))
             }
         } catch (e: Exception) {
-            emit(ResultWrapper.Error("Error: ${e.message}"))
+            // JIKA OFFLINE: Biarkan saja, karena data lokal (cache) sudah ditampilkan di langkah 1
+            if (localData.isEmpty()) {
+                emit(ResultWrapper.Error("Mode Offline: Belum ada data tersimpan di HP ini."))
+            }
         }
     }
 
-    // Fungsi mengambil data orang tua untuk dropdown
+    // Fungsi mengambil data orang tua untuk dropdown (Tetap Online agar datanya real-time)
     fun getOrangTuaVerified(): Flow<ResultWrapper<List<OrangTuaSimpleDto>>> = flow {
         emit(ResultWrapper.Loading)
         try {

@@ -1,27 +1,37 @@
 package com.skripsi.posyandudigital.ui.kader
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.skripsi.posyandudigital.data.remote.api.RetrofitClient
+import com.skripsi.posyandudigital.data.remote.dto.PendingOrangTuaDto
 import com.skripsi.posyandudigital.data.repository.UserManagementRepositoryImpl
 import com.skripsi.posyandudigital.data.session.SessionManager
+import com.skripsi.posyandudigital.ui.theme.CriticalRed
+import com.skripsi.posyandudigital.ui.theme.HealthyGreen
 import com.skripsi.posyandudigital.ui.theme.PrimaryBlue
+import com.skripsi.posyandudigital.ui.theme.TextSecondary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,25 +40,33 @@ fun VerificationScreen(
 ) {
     val context = LocalContext.current
 
-    // Inisialisasi ViewModel secara manual karena belum pakai Hilt/Koin
-    val viewModel: VerificationViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-        override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-            return VerificationViewModel(UserManagementRepositoryImpl(RetrofitClient.instance, SessionManager(context))) as T
+    // PERBAIKAN DI SINI: Factory inline yang otomatis memasukkan Repository
+    val factory = remember {
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                val repository = UserManagementRepositoryImpl(
+                    apiService = RetrofitClient.instance,
+                    sessionManager = SessionManager(context)
+                )
+                return VerificationViewModel(repository) as T
+            }
         }
-    })
+    }
 
+    val viewModel: VerificationViewModel = viewModel(factory = factory)
     val state = viewModel.state.value
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Menangani pesan sukses atau error dari ViewModel
+    // Munculkan notifikasi jika sukses/error
     LaunchedEffect(state.successMessage, state.error) {
         state.successMessage?.let {
             snackbarHostState.showSnackbar(it)
-            viewModel.dismissMessage()
+            viewModel.clearMessages()
         }
         state.error?.let {
             snackbarHostState.showSnackbar(it)
-            viewModel.dismissMessage()
+            viewModel.clearMessages()
         }
     }
 
@@ -56,82 +74,149 @@ fun VerificationScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Verifikasi Orang Tua") },
+                title = { Text("Daftar Tunggu Verifikasi") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, "Kembali")
-                    }
+                    IconButton(onClick = onNavigateBack) { Icon(Icons.Default.ArrowBack, "Kembali") }
                 }
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .padding(24.dp)
-                .fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.VerifiedUser,
-                contentDescription = null,
-                tint = PrimaryBlue,
-                modifier = Modifier.size(80.dp)
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "Masukkan Kode Verifikasi",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = PrimaryBlue
-            )
-
-            Text(
-                text = "Minta Orang Tua untuk menunjukkan kode verifikasi 6 digit pada aplikasi mereka.",
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = 16.dp)
-            )
-
-            // Input Field untuk Kode Angka
-            OutlinedTextField(
-                value = viewModel.verificationCode.value,
-                onValueChange = {
-                    // Batasi input hanya angka dan maksimal 6 digit
-                    if (it.length <= 6 && it.all { char -> char.isDigit() }) {
-                        viewModel.verificationCode.value = it
+        Box(modifier = Modifier.padding(padding).fillMaxSize().background(Color(0xFFF5F5F5))) {
+            if (state.isLoading) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            } else if (state.pendingList.isEmpty()) {
+                Text(
+                    "Tidak ada antrean pendaftaran orang tua.",
+                    modifier = Modifier.align(Alignment.Center),
+                    color = TextSecondary
+                )
+            } else {
+                LazyColumn(
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(state.pendingList) { pendingUser ->
+                        PendingUserCard(
+                            user = pendingUser,
+                            // PERBAIKAN: Lempar kode inputan ke viewModel.verifyByCode
+                            onVerify = { kodeInput -> viewModel.verifyByCode(kodeInput) },
+                            onReject = { viewModel.rejectUser(pendingUser.user.id) }
+                        )
                     }
-                },
-                label = { Text("Kode 6 Digit") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                textStyle = LocalTextStyle.current.copy(
-                    textAlign = TextAlign.Center,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 4.sp
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
+                }
+            }
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(32.dp))
+@Composable
+fun PendingUserCard(
+    user: PendingOrangTuaDto,
+    onVerify: (String) -> Unit, // PERUBAHAN: Menerima String (Kode)
+    onReject: () -> Unit
+) {
+    var showDialogTolak by remember { mutableStateOf(false) }
+    var showDialogSetuju by remember { mutableStateOf(false) }
+    var inputKode by remember { mutableStateOf("") }
 
-            Button(
-                onClick = { viewModel.verifyUser() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                // Tombol aktif hanya jika kode sudah 6 digit
-                enabled = !state.isLoading && viewModel.verificationCode.value.length == 6
-            ) {
-                if (state.isLoading) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary)
-                } else {
-                    Text("Verifikasi Sekarang")
+    // Dialog Konfirmasi Penolakan
+    if (showDialogTolak) {
+        AlertDialog(
+            onDismissRequest = { showDialogTolak = false },
+            title = { Text("Tolak Pendaftaran?") },
+            text = { Text("Anda yakin ingin menolak dan menghapus pendaftaran atas nama Ibu ${user.namaIbu}? Data tidak dapat dikembalikan.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDialogTolak = false
+                    onReject()
+                }) { Text("Ya, Tolak", color = CriticalRed) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialogTolak = false }) { Text("Batal") }
+            }
+        )
+    }
+
+    // Dialog Input Kode Verifikasi
+    if (showDialogSetuju) {
+        AlertDialog(
+            onDismissRequest = {
+                showDialogSetuju = false
+                inputKode = ""
+            },
+            title = { Text("Verifikasi Kode", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("Minta 6 digit kode verifikasi yang ada di layar aplikasi Ibu ${user.namaIbu} dan masukkan di bawah ini:")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = inputKode,
+                        onValueChange = { inputKode = it },
+                        label = { Text("Kode Verifikasi") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDialogSetuju = false
+                        onVerify(inputKode)
+                        inputKode = ""
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = HealthyGreen),
+                    enabled = inputKode.isNotBlank()
+                ) { Text("Verifikasi") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showDialogSetuju = false
+                    inputKode = ""
+                }) { Text("Batal") }
+            }
+        )
+    }
+
+    Card(
+        elevation = CardDefaults.cardElevation(2.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(40.dp))
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Ibu ${user.namaIbu}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("No HP: ${user.noHp ?: "-"}", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                    Text("Alamat: ${user.alamat ?: "-"}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Divider()
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Tombol Aksi
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                OutlinedButton(
+                    onClick = { showDialogTolak = true },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = CriticalRed),
+                    border = BorderStroke(1.dp, CriticalRed)
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Tolak")
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = { showDialogSetuju = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = HealthyGreen)
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Setujui")
                 }
             }
         }

@@ -43,13 +43,15 @@ data class KaderDashboardDto(
 
 // --- ORANG TUA ---
 data class OrangTuaDashboardDto(
-    @SerializedName("anak") val anak: AnakDto?,
+    @SerializedName("daftar_anak") val daftarAnak: List<AnakSimpleDto>? = emptyList(),
     @SerializedName("kms_terakhir") val kmsTerakhir: KmsSimpleDto?
 )
 
-data class AnakDto(
+data class AnakSimpleDto(
+    val id: Int,
     @SerializedName("nama_anak") val namaAnak: String?,
-    @SerializedName("umur_bulan") val umurBulan: Int
+    @SerializedName("umur_bulan") val umurBulan: Int?,
+    @SerializedName("jenis_kelamin") val jenisKelamin: String?
 )
 
 data class KmsSimpleDto(

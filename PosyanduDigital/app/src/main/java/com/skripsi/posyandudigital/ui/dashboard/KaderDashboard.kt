@@ -1,6 +1,5 @@
 package com.skripsi.posyandudigital.ui.dashboard
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -8,19 +7,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.skripsi.posyandudigital.data.remote.dto.*
+import com.skripsi.posyandudigital.data.remote.dto.KaderDashboardDto
 import com.skripsi.posyandudigital.ui.theme.*
-
-// ... (SuperAdminDashboardScreen & AdminDesaDashboardScreen tetap sama) ...
-// --- HANYA MENAMPILKAN KADER SCREEN YANG DIUPDATE ---
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,7 +23,6 @@ fun KaderDashboardScreen(
     data: KaderDashboardDto,
     onLogout: () -> Unit,
     onNavigateToVerifikasi: () -> Unit,
-    // --- TAMBAHAN PARAMETER ---
     onNavigateToDaftarBalita: () -> Unit
 ) {
     val kaderStats = listOf(
@@ -78,15 +72,13 @@ fun KaderDashboardScreen(
             Text("Menu Utama", style = MaterialTheme.typography.titleMedium, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- UPDATE: Meneruskan fungsi klik ke komponen tombol ---
             KaderActionButtons(
                 verifCount = data.totalOrangTuaMenungguVerifikasi,
                 onVerifikasiClick = onNavigateToVerifikasi,
+                onInputPenimbanganClick = onNavigateToDaftarBalita,
                 onDaftarBalitaClick = onNavigateToDaftarBalita
             )
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
-
-// --- (OrangTuaDashboardScreen dan lainnya tetap sama, pastikan file ini lengkap) ---

@@ -3,7 +3,7 @@ const User = require("../models/User");
 const OrangTuaProfile = require("../models/OrangTuaProfile");
 const KaderProfile = require("../models/KaderProfile");
 
-// --- 1. GET DAFTAR PENDING (Opsional, untuk info saja) ---
+// --- 1. GET DAFTAR PENDING (INFO DAFTAR TUNGGU) ---
 const getPendingOrangTua = async (req, res) => {
   try {
     const kader = await KaderProfile.findOne({ where: { user_id: req.user.id } });
@@ -27,7 +27,43 @@ const getPendingOrangTua = async (req, res) => {
   }
 };
 
-// --- 2. VERIFIKASI BY KODE (FITUR UTAMA) ---
+// --- TAMBAHAN BARU: VERIFIKASI BY ID (KLIK TOMBOL SETUJUI) ---
+const verifyOrangTuaById = async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const user = await User.findByPk(userId);
+    if (!user) return res.status(404).json({ message: "User tidak ditemukan" });
+
+    user.is_verified = true;
+    user.status = 'aktif';
+    user.kode_verifikasi = null; // Hapus kode agar bersih
+    await user.save();
+
+    res.status(200).json({ message: "Akun berhasil disetujui" });
+  } catch (error) {
+    res.status(500).json({ message: "Server Error" });
+  }
+};
+
+// --- TAMBAHAN BARU: TOLAK PENDAFTARAN (KLIK TOMBOL TOLAK) ---
+const rejectOrangTuaById = async (req, res) => {
+  const { userId } = req.params;
+  const t = await sequelize.transaction();
+  try {
+    // 1. Hapus profil Ibu terlebih dahulu agar tidak kena error relasi (Foreign Key)
+    await OrangTuaProfile.destroy({ where: { user_id: userId }, transaction: t });
+    // 2. Baru hapus akun User-nya
+    await User.destroy({ where: { id: userId }, transaction: t });
+
+    await t.commit();
+    res.status(200).json({ message: "Pendaftaran berhasil ditolak dan dihapus" });
+  } catch (error) {
+    await t.rollback();
+    res.status(500).json({ message: "Server Error" });
+  }
+};
+
+// --- 2. VERIFIKASI BY KODE (FITUR LAMA - OPSIONAL JIKA MASIH DIPAKAI) ---
 const verifyByCode = async (req, res) => {
   const { code } = req.body; // Kader input kode 6 digit
 
@@ -55,7 +91,6 @@ const verifyByCode = async (req, res) => {
     const kader = await KaderProfile.findOne({ where: { user_id: req.user.id } });
     
     // Jika user punya posyandu_id, pastikan sama dengan posyandu kader
-    // Jika null, mungkin kader bisa mengklaimnya (opsional)
     if (user.OrangTuaProfile && user.OrangTuaProfile.posyandu_id !== kader.posyandu_id) {
         return res.status(403).json({ message: "User ini terdaftar di Posyandu lain." });
     }
@@ -79,5 +114,7 @@ const verifyByCode = async (req, res) => {
 
 module.exports = {
   getPendingOrangTua,
-  verifyByCode, // Export fungsi baru ini
+  verifyByCode,
+  verifyOrangTuaById,
+  rejectOrangTuaById
 };

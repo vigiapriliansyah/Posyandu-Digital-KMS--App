@@ -114,6 +114,7 @@ class UserManagementRepositoryImpl(
         }
     }
 
+    // PERBAIKAN: Fungsi ini sebelumnya terpotong
     override fun createPosyandu(nama: String, desaId: Int): Flow<ResultWrapper<PosyanduDto>> = flow {
         emit(ResultWrapper.Loading)
         try {
@@ -147,12 +148,40 @@ class UserManagementRepositoryImpl(
         }
     }
 
-    // UPDATE: Implementasi Verifikasi via Kode
+    override fun verifyOrangTua(userId: Int): Flow<ResultWrapper<Unit>> = flow {
+        emit(ResultWrapper.Loading)
+        try {
+            val token = getToken() ?: return@flow emit(ResultWrapper.Error("Sesi berakhir"))
+            val response = apiService.verifyOrangTua("Bearer $token", userId)
+            if (response.isSuccessful) {
+                emit(ResultWrapper.Success(Unit))
+            } else {
+                emit(ResultWrapper.Error("Verifikasi gagal: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            emit(ResultWrapper.Error("Error koneksi: ${e.message}"))
+        }
+    }
+
+    override fun rejectOrangTua(userId: Int): Flow<ResultWrapper<Unit>> = flow {
+        emit(ResultWrapper.Loading)
+        try {
+            val token = getToken() ?: return@flow emit(ResultWrapper.Error("Sesi berakhir"))
+            val response = apiService.rejectOrangTua("Bearer $token", userId)
+            if (response.isSuccessful) {
+                emit(ResultWrapper.Success(Unit))
+            } else {
+                emit(ResultWrapper.Error("Gagal menolak akun: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            emit(ResultWrapper.Error("Error koneksi: ${e.message}"))
+        }
+    }
+
     override fun verifyByCode(code: String): Flow<ResultWrapper<Unit>> = flow {
         emit(ResultWrapper.Loading)
         try {
             val token = getToken() ?: return@flow emit(ResultWrapper.Error("Sesi berakhir"))
-            // Pastikan Anda sudah update ApiService dengan endpoint 'verifyByCode'
             val response = apiService.verifyByCode("Bearer $token", VerifyCodeRequest(code))
 
             if (response.isSuccessful) {

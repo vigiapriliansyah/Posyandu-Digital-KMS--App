@@ -4,6 +4,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.skripsi.posyandudigital.data.remote.dto.PendingOrangTuaDto
 import com.skripsi.posyandudigital.data.repository.UserManagementRepository
 import com.skripsi.posyandudigital.utils.ResultWrapper
 import kotlinx.coroutines.flow.launchIn
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.onEach
 
 data class VerificationState(
     val isLoading: Boolean = false,
+    val pendingList: List<PendingOrangTuaDto> = emptyList(),
     val error: String? = null,
     val successMessage: String? = null
 )
@@ -22,34 +24,76 @@ class VerificationViewModel(
     private val _state = mutableStateOf(VerificationState())
     val state: State<VerificationState> = _state
 
-    // State untuk menampung input kode dari UI
-    var verificationCode = mutableStateOf("")
+    init {
+        loadPendingList()
+    }
 
-    // Fungsi Verifikasi Baru dengan Kode
-    fun verifyUser() {
-        val code = verificationCode.value
-        if (code.isBlank() || code.length < 6) {
-            _state.value = _state.value.copy(error = "Masukkan 6 digit kode verifikasi")
-            return
-        }
-
-        repository.verifyByCode(code).onEach { result ->
+    fun loadPendingList() {
+        repository.getPendingVerifications().onEach { result ->
             when (result) {
                 is ResultWrapper.Loading -> _state.value = _state.value.copy(isLoading = true, error = null)
+                is ResultWrapper.Success -> _state.value = _state.value.copy(isLoading = false, pendingList = result.data ?: emptyList())
+                is ResultWrapper.Error -> _state.value = _state.value.copy(isLoading = false, error = result.message)
+            }
+        }.launchIn(viewModelScope)
+    }
+
+    fun verifyUser(userId: Int) {
+        repository.verifyOrangTua(userId).onEach { result ->
+            when (result) {
+                is ResultWrapper.Loading -> _state.value = _state.value.copy(isLoading = true)
                 is ResultWrapper.Success -> {
                     _state.value = _state.value.copy(
                         isLoading = false,
-                        successMessage = "Akun Orang Tua Berhasil Diverifikasi!",
-                        error = null
+                        successMessage = "User berhasil diverifikasi!"
                     )
-                    verificationCode.value = "" // Reset field setelah sukses
+                    loadPendingList()
                 }
                 is ResultWrapper.Error -> _state.value = _state.value.copy(isLoading = false, error = result.message)
             }
         }.launchIn(viewModelScope)
     }
 
+    // FUNGSI INI YANG SEBELUMNYA HILANG: Untuk menolak pendaftaran
+    fun rejectUser(userId: Int) {
+        repository.rejectOrangTua(userId).onEach { result ->
+            when (result) {
+                is ResultWrapper.Loading -> _state.value = _state.value.copy(isLoading = true)
+                is ResultWrapper.Success -> {
+                    _state.value = _state.value.copy(
+                        isLoading = false,
+                        successMessage = "Pendaftaran berhasil ditolak!"
+                    )
+                    loadPendingList()
+                }
+                is ResultWrapper.Error -> _state.value = _state.value.copy(isLoading = false, error = result.message)
+            }
+        }.launchIn(viewModelScope)
+    }
+
+    // FUNGSI INI YANG SEBELUMNYA HILANG: Untuk verifikasi pakai 6 digit kode
+    fun verifyByCode(code: String) {
+        repository.verifyByCode(code).onEach { result ->
+            when (result) {
+                is ResultWrapper.Loading -> _state.value = _state.value.copy(isLoading = true)
+                is ResultWrapper.Success -> {
+                    _state.value = _state.value.copy(
+                        isLoading = false,
+                        successMessage = "Verifikasi berhasil menggunakan kode!"
+                    )
+                    loadPendingList()
+                }
+                is ResultWrapper.Error -> _state.value = _state.value.copy(isLoading = false, error = result.message)
+            }
+        }.launchIn(viewModelScope)
+    }
+
+    // FUNGSI INI YANG SEBELUMNYA HILANG: Untuk membersihkan pesan error di layar
+    fun clearMessages() {
+        _state.value = _state.value.copy(error = null, successMessage = null)
+    }
+
     fun dismissMessage() {
-        _state.value = _state.value.copy(successMessage = null, error = null)
+        clearMessages()
     }
 }

@@ -81,35 +81,63 @@ const createUser = async (req, res) => {
 const getUsers = async (req, res) => {
   try {
     const { role } = req.query;
-    const queryOptions = {
-      where: {},
-      attributes: { exclude: ["password"] },
-      order: [["createdAt", "DESC"]],
-      include: [],
-    };
+    const currentUser = req.user; // User yang sedang melakukan request (Admin/Superadmin)
 
-    if (role) queryOptions.where.role = role;
-
-    if (role === "admin") {
-      queryOptions.include.push({
-        model: AdminProfile,
-        include: [{ model: Desa, include: [Kecamatan] }],
-      });
-    } else if (role === "kader") {
-      queryOptions.include.push({
-        model: KaderProfile,
-        include: [
-          { model: Posyandu, include: [{ model: Desa, include: [Kecamatan] }] },
-        ],
-      });
+    let whereClause = {};
+    if (role) {
+      whereClause.role = role;
     }
 
-    const users = await User.findAll(queryOptions);
+    // --- PERBAIKAN: Jika Admin Desa me-request daftar Kader ---
+    if (currentUser.role === 'admin' && role === 'kader') {
+      // 1. Cari tahu Admin ini bertugas di desa mana
+      const adminProfile = await AdminProfile.findOne({ where: { user_id: currentUser.id } });
+      if (!adminProfile) return res.status(404).json({ message: "Profil Admin tidak ditemukan" });
+
+      // 2. Kumpulkan semua Posyandu yang ada di Desa milik Admin tersebut
+      // (Pastikan model Posyandu sudah ter-import di bagian atas file ini)
+      const Posyandu = require("../models/Posyandu"); 
+      const posyandus = await Posyandu.findAll({ where: { desa_id: adminProfile.desa_id } });
+      const posyanduIds = posyandus.map(p => p.id);
+
+      // 3. Filter User (Kader) yang posyandu_id nya HANYA ada di desa tersebut
+      const users = await User.findAll({
+        where: whereClause,
+        attributes: { exclude: ["password"] },
+        include: [
+          {
+            model: KaderProfile,
+            where: { posyandu_id: posyanduIds }, // KUNCI FILTER: Cocokkan ID posyandu
+            include: [{ model: Posyandu }]
+          }
+        ]
+      });
+      return res.status(200).json(users);
+    }
+
+    // --- TAMPILAN DEFAULT (Untuk Super Admin / get all users) ---
+    const users = await User.findAll({
+      where: whereClause,
+      attributes: { exclude: ["password"] },
+      include: [
+        {
+          model: AdminProfile,
+          include: [{ model: require("../models/Desa"), include: [{ model: require("../models/Kecamatan") }] }]
+        },
+        {
+          model: KaderProfile,
+          include: [{ model: require("../models/Posyandu") }]
+        }
+      ]
+    });
+
     res.status(200).json(users);
   } catch (error) {
+    console.error("Error getUsers:", error);
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
+
 
 // --- 3. DUMMY FUNCTIONS (Agar tidak error saat di-import) ---
 const getUserById = async (req, res) =>

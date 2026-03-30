@@ -43,6 +43,16 @@ android {
 
 dependencies {
 
+    val room_version = "2.6.1"
+    implementation("androidx.room:room-runtime:$room_version")
+    implementation("androidx.room:room-ktx:$room_version")
+
+    // UBAH kata 'kapt' menjadi 'ksp' di baris ini:
+    ksp("androidx.room:room-compiler:$room_version")
+
+    // WorkManager (Sinkronisasi Latar Belakang)
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
 
     implementation("androidx.compose.material:material-icons-extended:1.7.8")

@@ -90,7 +90,7 @@ fun LoginScreen(
                     .padding(horizontal = 24.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Icon(
                     imageVector = Icons.Default.HealthAndSafety,
@@ -106,9 +106,12 @@ fun LoginScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Selamat datang kembali",
+                    text = "Selamat Datang di Sistem Informasi Pencatatan dan Monitoring Pertumbuhan Balita (Posyandu Digital).",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+
                 )
 
                 Spacer(modifier = Modifier.height(48.dp))
