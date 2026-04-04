@@ -1,9 +1,11 @@
 package com.skripsi.posyandudigital.ui.anak
 
 import android.app.DatePickerDialog
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -43,7 +45,6 @@ fun DaftarAnakScreen(
 ) {
     val context = LocalContext.current
 
-    // --- PERBAIKAN: Memasukkan db.anakDao() ---
     val factory = remember {
         val db = AppDatabase.getDatabase(context)
         AnakViewModelFactory(AnakRepository(RetrofitClient.instance, SessionManager(context), db.anakDao()))
@@ -51,8 +52,23 @@ fun DaftarAnakScreen(
     val viewModel: AnakViewModel = viewModel(factory = factory)
     val state = viewModel.state.value
 
+    // --- STATE UNTUK FILTER ---
+    var selectedFilter by remember { mutableStateOf("Semua") }
+    val filterOptions = listOf("Semua", "Gizi Baik", "Gizi Kurang", "Gizi Buruk", "Risiko Gizi Lebih")
+
     LaunchedEffect(Unit) {
         viewModel.loadAnakList()
+    }
+
+    // --- LOGIKA FILTERING ---
+    val filteredList = if (selectedFilter == "Semua") {
+        state.anakList
+    } else {
+        state.anakList.filter { anak ->
+            // Pastikan properti ini ada di AnakDetailDto Anda
+            val status = anak.statusGiziTerakhir ?: ""
+            status.contains(selectedFilter, ignoreCase = true)
+        }
     }
 
     Scaffold(
@@ -68,18 +84,47 @@ fun DaftarAnakScreen(
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-            if (state.isLoading && state.anakList.isEmpty()) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else if (state.anakList.isEmpty()) {
-                Text("Belum ada data balita.", modifier = Modifier.align(Alignment.Center), color = TextSecondary)
-            } else {
-                LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(state.anakList) { anak ->
-                        AnakItemCard(
-                            anak = anak,
-                            onClick = { onNavigateToDetail(anak.id, anak.namaAnak, anak.umurBulan ?: 0, anak.jenisKelamin) }
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+
+            // --- KOMPONEN FILTER BAR (CHIPS) ---
+            LazyRow(
+                modifier = Modifier.fillMaxWidth().background(Color.White),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(filterOptions) { filter ->
+                    FilterChip(
+                        selected = selectedFilter == filter,
+                        onClick = { selectedFilter = filter },
+                        label = { Text(filter) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = PrimaryBlue,
+                            selectedLabelColor = Color.White
                         )
+                    )
+                }
+            }
+
+            HorizontalDivider(color = Color(0xFFEEEEEE))
+
+            // --- KONTEN DAFTAR BALITA ---
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                if (state.isLoading && state.anakList.isEmpty()) {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                } else if (filteredList.isEmpty()) {
+                    val msg = if (state.anakList.isEmpty()) "Belum ada data balita." else "Tidak ada balita dengan status $selectedFilter."
+                    Text(msg, modifier = Modifier.align(Alignment.Center), color = TextSecondary)
+                } else {
+                    LazyColumn(
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(filteredList) { anak ->
+                            AnakItemCard(
+                                anak = anak,
+                                onClick = { onNavigateToDetail(anak.id, anak.namaAnak, anak.umurBulan ?: 0, anak.jenisKelamin) }
+                            )
+                        }
                     }
                 }
             }
@@ -89,6 +134,16 @@ fun DaftarAnakScreen(
 
 @Composable
 fun AnakItemCard(anak: AnakDetailDto, onClick: () -> Unit) {
+    // --- PENENTUAN WARNA STATUS GIZI ---
+    val statusGizi = anak.statusGiziTerakhir ?: "Belum ada data KMS"
+    val colorStatus = when {
+        statusGizi.contains("Baik", true) -> Color(0xFF4CAF50) // Hijau
+        statusGizi.contains("Kurang", true) -> Color(0xFFFBC02D) // Kuning
+        statusGizi.contains("Buruk", true) -> Color.Red // Merah
+        statusGizi.contains("Lebih", true) -> Color(0xFFFF9800) // Orange
+        else -> Color.Gray
+    }
+
     Card(
         elevation = CardDefaults.cardElevation(2.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -100,10 +155,23 @@ fun AnakItemCard(anak: AnakDetailDto, onClick: () -> Unit) {
 
             Icon(icon, null, tint = color, modifier = Modifier.size(40.dp))
             Spacer(modifier = Modifier.width(16.dp))
-            Column {
+
+            Column(modifier = Modifier.weight(1f)) {
                 Text(anak.namaAnak, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text("Ibu: ${anak.orangTua?.namaIbu ?: "-"}", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                 Text("Umur: ${anak.umurBulan ?: 0} Bulan", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+
+                // Tampilan Status Gizi (Berwarna)
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = statusGizi,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colorStatus,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .background(colorStatus.copy(alpha = 0.1f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
             }
         }
     }
@@ -119,7 +187,6 @@ fun TambahAnakScreen(onNavigateBack: () -> Unit) {
     val isKaderOrAdmin = userRole == "kader" || userRole == "admin"
     val isOrangTua = userRole == "orangtua"
 
-    // --- PERBAIKAN: Memasukkan db.anakDao() ---
     val factory = remember {
         val db = AppDatabase.getDatabase(context)
         AnakViewModelFactory(AnakRepository(RetrofitClient.instance, sessionManager, db.anakDao()))
@@ -187,14 +254,14 @@ fun TambahAnakScreen(onNavigateBack: () -> Unit) {
                 FilterChip(selected = jenisKelamin == "L", onClick = { jenisKelamin = "L" }, label = { Text("Laki-Laki") })
                 FilterChip(selected = jenisKelamin == "P", onClick = { jenisKelamin = "P" }, label = { Text("Perempuan") })
             }
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             Text("Data Saat Lahir (Opsional)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(value = beratLahir, onValueChange = { beratLahir = it }, label = { Text("Berat (kg)") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
                 OutlinedTextField(value = tinggiLahir, onValueChange = { tinggiLahir = it }, label = { Text("Tinggi (cm)") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
             }
             if (isKaderOrAdmin) {
-                Divider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 Text("Hubungkan dengan Orang Tua", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 SearchableDropdown(label = "Pilih Ibu Kandung", options = state.orangTuaList, selectedOption = selectedOrangTua, optionToString = { it.namaIbu }, onOptionSelected = { selectedOrangTua = it })
             } else if (isOrangTua) {

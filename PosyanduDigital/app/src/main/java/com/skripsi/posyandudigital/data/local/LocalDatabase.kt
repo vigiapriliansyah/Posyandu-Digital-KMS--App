@@ -3,7 +3,7 @@ package com.skripsi.posyandudigital.data.local
 import android.content.Context
 import androidx.room.*
 
-// --- 1. ENTITAS KMS (Yang sudah ada) ---
+// --- 1. ENTITAS KMS ---
 @Entity(tableName = "kms_records")
 data class KmsEntity(
     @PrimaryKey(autoGenerate = true) val localId: Int = 0,
@@ -21,7 +21,7 @@ data class KmsEntity(
     val isSynced: Boolean = false
 )
 
-// --- 2. ENTITAS DAFTAR ANAK (Baru) ---
+// --- 2. ENTITAS DAFTAR ANAK ---
 @Entity(tableName = "anak_records")
 data class AnakEntity(
     @PrimaryKey val id: Int,
@@ -29,10 +29,12 @@ data class AnakEntity(
     val jenisKelamin: String,
     val tanggalLahir: String?,
     val umurBulan: Int,
-    val namaIbu: String
+    val namaIbu: String,
+    // --- PERBAIKAN: Menambahkan parameter yang diminta oleh AnakRepository ---
+    val statusGiziTerakhir: String? = null
 )
 
-// --- 3. ENTITAS CACHE DASHBOARD (Baru) ---
+// --- 3. ENTITAS CACHE DASHBOARD ---
 @Entity(tableName = "dashboard_cache")
 data class DashboardCacheEntity(
     @PrimaryKey val role: String, // cth: "kader", "admin"
@@ -77,7 +79,7 @@ interface DashboardCacheDao {
 // --- INISIALISASI DATABASE ---
 @Database(
     entities = [KmsEntity::class, AnakEntity::class, DashboardCacheEntity::class],
-    version = 2, // Naikkan versi karena tambah tabel
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

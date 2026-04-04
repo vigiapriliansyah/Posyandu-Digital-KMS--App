@@ -92,13 +92,12 @@ const createAnak = async (req, res) => {
   }
 };
 
-// --- 2. GET DAFTAR ANAK ---
+// --- 2. GET DAFTAR ANAK (DIPERBARUI DENGAN STATUS GIZI) ---
 const getAnakList = async (req, res) => {
   try {
     let daftarAnak = [];
 
     if (req.user.role === 'kader') {
-      // JIKA KADER: Ambil semua anak di 1 posyandu
       const kader = await KaderProfile.findOne({ where: { user_id: req.user.id } });
       if (!kader) return res.status(404).json({ message: "Profil Kader tidak ditemukan" });
 
@@ -114,7 +113,6 @@ const getAnakList = async (req, res) => {
         order: [["nama_anak", "ASC"]],
       });
     } else if (req.user.role === 'admin') {
-      // JIKA ADMIN: Ambil anak dari SEMUA posyandu di desanya
       const admin = await AdminProfile.findOne({ where: { user_id: req.user.id } });
       if (!admin || !admin.desa_id) return res.status(404).json({ message: "Profil Admin Desa tidak ditemukan" });
 
@@ -133,7 +131,6 @@ const getAnakList = async (req, res) => {
         order: [["nama_anak", "ASC"]],
       });
     } else if (req.user.role === 'orangtua') {
-      // JIKA ORANG TUA: Ambil anak yang terikat dengan ID Ibu ini saja
       daftarAnak = await Anak.findAll({
         include: [
           {
@@ -148,7 +145,7 @@ const getAnakList = async (req, res) => {
     }
 
     // Mapping format JSON agar ramah untuk Frontend Android
-    const formattedData = daftarAnak.map(anak => {
+    const formattedData = await Promise.all(daftarAnak.map(async (anak) => {
         const orangTua = (anak.Users && anak.Users.length > 0) ? anak.Users[0].OrangTuaProfile : null; 
         
         // Hitung Umur Bulan
@@ -157,15 +154,41 @@ const getAnakList = async (req, res) => {
         let umurBulan = (skrg.getFullYear() - tglLahir.getFullYear()) * 12 + skrg.getMonth() - tglLahir.getMonth();
         if (umurBulan < 0) umurBulan = 0;
 
+        // --- MENCARI STATUS GIZI TERAKHIR DARI TABEL PENGUKURAN ---
+        let statusGiziTeks = null;
+        try {
+            const modelPengukuran = sequelize.models.Pengukuran; 
+            
+            if (modelPengukuran) {
+                const lastKms = await modelPengukuran.findOne({
+                    where: { anak_id: anak.id },
+                    // PERBAIKAN FATAL: Tambahkan createdAt agar backend mengambil data 
+                    // yang BENAR-BENAR terakhir diinput jika tanggalnya sama.
+                    order: [
+                        ['tanggal_pencatatan', 'DESC'],
+                        ['createdAt', 'DESC'] 
+                    ]
+                });
+
+                if (lastKms && lastKms.status_gizi) {
+                    const giziObj = JSON.parse(lastKms.status_gizi);
+                    statusGiziTeks = giziObj.bb_u;
+                }
+            }
+        } catch (err) {
+            console.error(`Gagal parsing riwayat KMS anak ID ${anak.id}:`, err.message);
+        }
+
         return {
             id: anak.id,
             nama_anak: anak.nama_anak,
             jenis_kelamin: anak.jenis_kelamin,
             tanggal_lahir: anak.tanggal_lahir,
             umur_bulan: umurBulan,
-            OrangTuaProfile: orangTua ? { nama_ibu: orangTua.nama_ibu } : { nama_ibu: "Belum terhubung" }
+            OrangTuaProfile: orangTua ? { nama_ibu: orangTua.nama_ibu } : { nama_ibu: "Belum terhubung" },
+            status_gizi_terakhir: statusGiziTeks
         };
-    });
+    }));
 
     res.status(200).json(formattedData);
   } catch (error) {
@@ -179,7 +202,6 @@ const getOrangTuaVerified = async (req, res) => {
   try {
     let posyanduIds = [];
 
-    // Cek Role untuk menentukan cakupan Posyandu
     if (req.user.role === 'kader') {
         const kader = await KaderProfile.findOne({ where: { user_id: req.user.id } });
         if (!kader) return res.status(404).json({ message: "Kader tidak ditemukan" });
@@ -192,7 +214,6 @@ const getOrangTuaVerified = async (req, res) => {
         posyanduIds = posyandus.map(p => p.id);
     }
     
-    // Cari profil orang tua berdasarkan array posyanduIds
     const listOrangTua = await OrangTuaProfile.findAll({
         where: { posyandu_id: posyanduIds },
         include: [{
@@ -203,7 +224,6 @@ const getOrangTuaVerified = async (req, res) => {
         attributes: ['nama_ibu']
     });
 
-    // Format untuk Dropdown Android: { id: user_id, nama_ibu: "Siti" }
     const response = listOrangTua.map(profil => ({
         id: profil.User.id, 
         nama_ibu: profil.nama_ibu

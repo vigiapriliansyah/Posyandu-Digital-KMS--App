@@ -9,7 +9,9 @@ data class AnakDetailDto(
     @SerializedName("jenis_kelamin") val jenisKelamin: String,
     @SerializedName("tanggal_lahir") val tanggalLahir: String,
     @SerializedName("umur_bulan") val umurBulan: Int?,
-    @SerializedName("OrangTuaProfile") val orangTua: OrangTuaSimpleDto?
+    @SerializedName("OrangTuaProfile") val orangTua: OrangTuaSimpleDto?,
+    @SerializedName("status_gizi_terakhir") val statusGiziTerakhir: String? = null
+
 )
 
 // 2. DTO Untuk Dropdown pemilihan Orang Tua saat "Tambah Anak"

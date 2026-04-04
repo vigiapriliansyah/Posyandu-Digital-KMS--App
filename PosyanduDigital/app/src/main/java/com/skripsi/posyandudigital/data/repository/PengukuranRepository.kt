@@ -12,6 +12,7 @@ import com.skripsi.posyandudigital.data.remote.dto.*
 import com.skripsi.posyandudigital.data.session.SessionManager
 import com.skripsi.posyandudigital.utils.ResultWrapper
 import com.skripsi.posyandudigital.worker.SyncKmsWorker
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flow
@@ -44,21 +45,21 @@ class PengukuranRepository(
     fun getRiwayat(anakId: Int): Flow<ResultWrapper<List<PengukuranDetailDto>>> = flow {
         emit(ResultWrapper.Loading)
 
-        // 1. Tampilkan data dari database lokal dulu
-        val localData = dao.getRiwayatByAnak(anakId)
-        if (localData.isNotEmpty()) {
-            emit(ResultWrapper.Success(mapEntityToDto(localData)))
-        }
-
         try {
-            // 2. Tarik data dari Server
+            // 1. Tampilkan data dari database lokal dulu (OFFLINE FIRST - Super Cepat)
+            val localData = dao.getRiwayatByAnak(anakId)
+            if (localData.isNotEmpty()) {
+                emit(ResultWrapper.Success(mapEntityToDto(localData)))
+            }
+
+            // 2. Sinkronisasi background dengan server
             val token = getToken() ?: throw Exception("Sesi habis")
             val response = apiService.getRiwayatPengukuran("Bearer $token", anakId)
 
             if (response.isSuccessful && response.body() != null) {
                 val apiData = response.body()!!
 
-                // 3. Sinkronisasi (hanya ganti yang sudah sukses terkirim)
+                // Hapus data tersinkron lama, simpan data terbaru
                 dao.deleteSyncedRecordsByAnak(anakId)
                 val entitiesToInsert = apiData.map { dto ->
                     KmsEntity(
@@ -71,17 +72,21 @@ class PengukuranRepository(
                 }
                 dao.insertAll(entitiesToInsert)
 
-                // 4. Update UI
+                // Refresh UI dengan data gabungan (Data API + Data Offline yang belum terkirim)
                 val updatedLocalData = dao.getRiwayatByAnak(anakId)
                 emit(ResultWrapper.Success(mapEntityToDto(updatedLocalData)))
 
-            } else {
-                if (localData.isEmpty()) emit(ResultWrapper.Error("Gagal dari server: ${response.code()}"))
+            } else if (localData.isEmpty()) {
+                emit(ResultWrapper.Error("Gagal mengambil data dari server: ${response.code()}"))
             }
         } catch (e: Exception) {
-            e.printStackTrace()
-            if (localData.isEmpty()) {
-                emit(ResultWrapper.Error("Mode Offline: Belum ada data KMS untuk anak ini."))
+            // Abaikan jika coroutine dibatalkan (misal user pindah halaman)
+            if (e is CancellationException) throw e
+
+            // Tangkap error jaringan (Offline)
+            val checkLocal = dao.getRiwayatByAnak(anakId)
+            if (checkLocal.isEmpty()) {
+                emit(ResultWrapper.Error("Anda sedang Offline. Belum ada riwayat KMS tersimpan di perangkat untuk balita ini."))
             }
         }
     }
@@ -99,14 +104,14 @@ class PengukuranRepository(
             )
             dao.insert(entity)
 
-            // 2. Bangunkan Kurir (WorkManager)
+            // 2. Bangunkan Kurir (WorkManager) untuk mengirim data di background
             val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
             val syncWork = OneTimeWorkRequestBuilder<SyncKmsWorker>()
                 .setConstraints(constraints)
                 .build()
             WorkManager.getInstance(context).enqueue(syncWork)
 
-            // 3. Fake Response UI
+            // 3. Beri respon sukses instan ke layar UI
             val fakeResponse = PengukuranResponse("Disimpan di perangkat.", null, null)
             emit(ResultWrapper.Success(fakeResponse))
 

@@ -20,13 +20,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -42,7 +46,6 @@ import com.skripsi.posyandudigital.ui.theme.TextSecondary
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import org.json.JSONObject
 
 // ====================================================================
 // DATA STANDAR WHO FULL (BULAN 0 - 24)
@@ -106,7 +109,6 @@ fun DetailAnakScreen(
     val userRole by sessionManager.getRole().collectAsState(initial = "")
     val isKader = userRole?.lowercase() == "kader"
 
-    // --- MENGGUNAKAN DATABASE LOKAL ---
     val factory = remember {
         val db = AppDatabase.getDatabase(context)
         PengukuranViewModelFactory(
@@ -117,6 +119,15 @@ fun DetailAnakScreen(
     val state = viewModel.state.value
 
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(state.error) {
+        state.error?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.dismissMessage()
+        }
+    }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -131,6 +142,7 @@ fun DetailAnakScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -157,66 +169,75 @@ fun DetailAnakScreen(
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize().background(Color(0xFFF5F5F5))) {
-            if (state.isLoading && state.riwayatList.isEmpty()) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 100.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
 
-                    item {
-                        val jkText = if (jenisKelamin == "L") "Laki-laki (Biru)" else "Perempuan (Pink)"
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(2.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text("Grafik Pertumbuhan KMS", fontWeight = FontWeight.Bold, color = PrimaryBlue)
-                                Text(jkText, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Box(
-                                    modifier = Modifier.fillMaxWidth().height(260.dp)
-                                        .border(1.dp, Color.LightGray, RoundedCornerShape(4.dp)).padding(4.dp)
-                                ) {
-                                    KmsChart(riwayatList = state.riwayatList, jenisKelamin = jenisKelamin)
-                                }
+            // --- PERBAIKAN UI OFFLINE FIRST ---
+            // Layar akan selalu memuat daftar (atau layar kosong) tanpa di-block oleh loading berputar
+            LazyColumn(
+                contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 100.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+
+                item {
+                    val jkText = if (jenisKelamin == "L") "Laki-laki (Biru)" else "Perempuan (Pink)"
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(2.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Grafik Pertumbuhan KMS", fontWeight = FontWeight.Bold, color = PrimaryBlue)
+                            Text(jkText, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Box(
+                                modifier = Modifier.fillMaxWidth().height(260.dp)
+                                    .border(1.dp, Color.LightGray, RoundedCornerShape(4.dp)).padding(4.dp)
+                            ) {
+                                KmsChart(riwayatList = state.riwayatList, jenisKelamin = jenisKelamin)
                             }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("Riwayat Penimbangan:", fontWeight = FontWeight.Bold)
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Riwayat Penimbangan:", fontWeight = FontWeight.Bold)
+                }
 
-                    if (state.riwayatList.isEmpty()) {
-                        item { Text("Belum ada riwayat KMS.", color = TextSecondary) }
-                    } else {
-                        items(state.riwayatList) { item -> RiwayatItem(item) }
+                if (state.riwayatList.isEmpty()) {
+                    item {
+                        Text("Belum ada riwayat KMS yang tersimpan di perangkat ini.", color = TextSecondary)
+                    }
+                } else {
+                    items(state.riwayatList) { item ->
+                        RiwayatItem(item = item, jenisKelamin = jenisKelamin)
                     }
                 }
+            }
+
+            // --- LOADING BAR PINDAH KE ATAS ---
+            // Saat offline/loading lambat, indikator hanya muncul kecil di atas layar,
+            // sehingga pengguna masih bisa melihat grafik dan riwayat lama
+            if (state.isLoading) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
+                    color = PrimaryBlue
+                )
             }
         }
     }
 }
 
 @Composable
-fun RiwayatItem(item: PengukuranDetailDto) {
-    var statusGiziDisplay = "-"
-    var colorDisplay = Color.Gray
-    try {
-        if (!item.statusGiziRaw.isNullOrBlank()) {
-            val jsonObj = JSONObject(item.statusGiziRaw)
-            statusGiziDisplay = jsonObj.optString("bb_u", "-")
-            colorDisplay = when(jsonObj.optString("warna_kms", "")) {
-                "Hitam", "Merah" -> Color.Red
-                "Kuning" -> Color(0xFFFBC02D)
-                else -> HealthyGreen
-            }
-        } else if (item.id < 0) { // Indikator Data Offline
-            statusGiziDisplay = "Menunggu Sinkronisasi"
-            colorDisplay = Color.Gray
-        }
-    } catch (e: Exception) {}
+fun RiwayatItem(item: PengukuranDetailDto, jenisKelamin: String) {
+    val statusGiziDisplay = if (item.id < 0) {
+        "Menunggu Sinkronisasi"
+    } else {
+        hitungGiziLokal(jenisKelamin, item.umurBulan, item.beratBadan)
+    }
+
+    val colorDisplay = when {
+        statusGiziDisplay.contains("Baik", true) -> HealthyGreen
+        statusGiziDisplay.contains("Kurang", true) || statusGiziDisplay.contains("Lebih", true) -> Color(0xFFFBC02D)
+        statusGiziDisplay.contains("Buruk", true) -> Color.Red
+        else -> Color.Gray
+    }
 
     Card(elevation = CardDefaults.cardElevation(2.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
@@ -224,7 +245,7 @@ fun RiwayatItem(item: PengukuranDetailDto) {
                 Text(item.tanggalPencatatan ?: "-", fontWeight = FontWeight.Bold, color = PrimaryBlue)
                 Text("${item.umurBulan} Bulan", style = MaterialTheme.typography.bodyMedium)
             }
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -273,7 +294,6 @@ fun InputPengukuranScreen(
     val context = LocalContext.current
     val sessionManager = remember { SessionManager(context) }
 
-    // --- MENGGUNAKAN DATABASE LOKAL ---
     val factory = remember {
         val db = AppDatabase.getDatabase(context)
         PengukuranViewModelFactory(
@@ -307,7 +327,7 @@ fun InputPengukuranScreen(
         state.successMessage?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.dismissMessage()
-            kotlinx.coroutines.delay(500) // Delay sedikit agar user bisa membaca popup
+            kotlinx.coroutines.delay(500)
             onNavigateBack()
         }
         state.error?.let {
@@ -370,10 +390,15 @@ fun InputPengukuranScreen(
                     .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(8.dp))
                     .padding(4.dp)
             ) {
-                if (state.isLoading && state.riwayatList.isEmpty()) {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                } else {
-                    KmsChart(riwayatList = liveRiwayat, jenisKelamin = jenisKelamin)
+                // Selalu tampilkan grafik walaupun belum ada data/sedang loading
+                KmsChart(riwayatList = liveRiwayat, jenisKelamin = jenisKelamin)
+
+                // Tambahkan progress bar kecil di atas jika sedang sinkronisasi
+                if (state.isLoading) {
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
+                        color = PrimaryBlue
+                    )
                 }
             }
 
@@ -446,10 +471,13 @@ fun InputPengukuranScreen(
                 },
                 modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
-                enabled = bbDouble != null && umurInt != null && !state.isLoading
+                // --- PERBAIKAN OFFLINE ---
+                // Dulu kita pakai: enabled = bbDouble != null && umurInt != null && !state.isLoading
+                // Akibatnya, tombol terkunci selama 30 detik saat offline.
+                // Sekarang tombol "Simpan KMS" selalu bisa diklik meskipun sedang offline!
+                enabled = bbDouble != null && umurInt != null
             ) {
-                if (state.isLoading) CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
-                else Text("Simpan KMS", fontWeight = FontWeight.Bold, color = Color.White)
+                Text("Simpan KMS", fontWeight = FontWeight.Bold, color = Color.White)
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
@@ -457,7 +485,7 @@ fun InputPengukuranScreen(
 }
 
 // ====================================================================
-// 3. KOMPONEN CANVAS: GRAFIK KMS
+// 3. KOMPONEN CANVAS: GRAFIK KMS (VERSI PRESISI SEMUA ANGKA MUNCUL)
 // ====================================================================
 @Composable
 fun KmsChart(
@@ -468,16 +496,29 @@ fun KmsChart(
     val dataBaku = if (jenisKelamin == "P") whoGirls else whoBoys
     val sortedRiwayat = riwayatList.sortedBy { it.umurBulan }
 
+    val textMeasurer = rememberTextMeasurer()
+    val textStyle = TextStyle(color = Color.Black, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+
     val maxBulan = 24f
-    val maxBerat = 16f
+    val maxBerat = 18f
 
-    Canvas(modifier = modifier.fillMaxSize()) {
-        val w = size.width
-        val h = size.height
+    Canvas(
+        modifier = modifier.fillMaxSize()
+    ) {
+        val startPadding = 32.dp.toPx()
+        val bottomPadding = 28.dp.toPx()
+        val topPadding = 16.dp.toPx()
+        val endPadding = 16.dp.toPx()
 
-        fun xPos(umur: Float): Float = (umur / maxBulan) * w
-        fun yPos(berat: Float): Float = h - ((berat / maxBerat) * h)
+        val w = size.width - startPadding - endPadding
+        val h = size.height - topPadding - bottomPadding
 
+        if (w <= 0 || h <= 0) return@Canvas
+
+        fun xPos(umur: Float): Float = startPadding + ((umur / maxBulan) * w)
+        fun yPos(berat: Float): Float = topPadding + (h - ((berat / maxBerat) * h))
+
+        // --- 1. MENGGAMBAR ZONA WARNA WHO ---
         val pathKuningAtas = Path().apply {
             moveTo(xPos(dataBaku.first()[0]), yPos(dataBaku.first()[5]))
             dataBaku.forEach { lineTo(xPos(it[0]), yPos(it[5])) }
@@ -502,39 +543,95 @@ fun KmsChart(
         }
         drawPath(pathKuningBawah, color = Color(0xFFFFF59D))
 
-        val pathMerah = Path().apply {
+        val pathMerahZona = Path().apply {
             moveTo(xPos(dataBaku.first()[0]), yPos(dataBaku.first()[1]))
             dataBaku.forEach { lineTo(xPos(it[0]), yPos(it[1])) }
             lineTo(xPos(dataBaku.last()[0]), yPos(0f))
             lineTo(xPos(dataBaku.first()[0]), yPos(0f))
             close()
         }
-        drawPath(pathMerah, color = Color(0xFFEF9A9A))
+        drawPath(pathMerahZona, color = Color(0xFFFFCDD2))
 
-        for (i in 0..24 step 3) drawLine(Color.Black.copy(alpha=0.1f), Offset(xPos(i.toFloat()), 0f), Offset(xPos(i.toFloat()), h))
-        for (i in 0..16 step 2) drawLine(Color.Black.copy(alpha=0.1f), Offset(0f, yPos(i.toFloat())), Offset(w, yPos(i.toFloat())))
+        val pathGarisMerah = Path().apply {
+            moveTo(xPos(dataBaku.first()[0]), yPos(dataBaku.first()[1]))
+            dataBaku.forEach { lineTo(xPos(it[0]), yPos(it[1])) }
+        }
+        drawPath(pathGarisMerah, color = Color.Red, style = Stroke(width = 3f))
 
+        // --- 2. MENGGAMBAR GRID PRESISI DAN ANGKA INDIKATOR ---
+
+        for (i in 0..maxBerat.toInt()) {
+            val y = Math.round(yPos(i.toFloat())).toFloat()
+
+            drawLine(
+                color = Color.Black.copy(alpha = 0.4f),
+                start = Offset(startPadding, y),
+                end = Offset(startPadding + w, y),
+                strokeWidth = if (i % 5 == 0) 2.5f else 1.5f
+            )
+
+            val textLayout = textMeasurer.measure(text = "$i", style = textStyle)
+            drawText(
+                textLayoutResult = textLayout,
+                topLeft = Offset(
+                    x = startPadding - textLayout.size.width - 6.dp.toPx(),
+                    y = y - (textLayout.size.height / 2f)
+                )
+            )
+        }
+
+        for (i in 0..maxBulan.toInt()) {
+            val x = Math.round(xPos(i.toFloat())).toFloat()
+
+            drawLine(
+                color = Color.Black.copy(alpha = 0.4f),
+                start = Offset(x, topPadding),
+                end = Offset(x, topPadding + h),
+                strokeWidth = 1.5f
+            )
+
+            val textLayout = textMeasurer.measure(text = "$i", style = textStyle)
+            drawText(
+                textLayoutResult = textLayout,
+                topLeft = Offset(
+                    x = x - (textLayout.size.width / 2f),
+                    y = topPadding + h + 6.dp.toPx()
+                )
+            )
+        }
+
+        drawLine(Color.Black, Offset(startPadding, topPadding), Offset(startPadding, topPadding + h), strokeWidth = 2f)
+        drawLine(Color.Black, Offset(startPadding, topPadding + h), Offset(startPadding + w, topPadding + h), strokeWidth = 2f)
+
+        // --- 3. MENGGAMBAR TITIK DAN GARIS RIWAYAT ANAK ---
         if (sortedRiwayat.isNotEmpty()) {
-            val pathData = Path()
-            var isFirst = true
+            val validRiwayat = sortedRiwayat.filter { it.umurBulan <= maxBulan.toInt() }
 
-            sortedRiwayat.forEach { data ->
-                val x = xPos(data.umurBulan.toFloat())
-                val y = yPos(data.beratBadan.toFloat())
+            if (validRiwayat.isNotEmpty()) {
+                val pathData = Path()
 
-                if (data.umurBulan <= 24) {
-                    if (isFirst) { pathData.moveTo(x, y); isFirst = false }
-                    else { pathData.lineTo(x, y) }
+                validRiwayat.forEachIndexed { index, data ->
+                    val x = xPos(data.umurBulan.toFloat())
+                    val y = yPos(data.beratBadan.toFloat())
+
+                    if (index == 0) {
+                        pathData.moveTo(x, y)
+                    } else {
+                        pathData.lineTo(x, y)
+                    }
 
                     if (data.id == -1) {
                         drawCircle(color = Color.Blue.copy(alpha = 0.4f), radius = 14f, center = Offset(x, y))
                         drawCircle(color = Color.Blue, radius = 6f, center = Offset(x, y))
                     } else {
-                        drawCircle(color = Color.Red, radius = 6f, center = Offset(x, y))
+                        drawCircle(color = Color.Black, radius = 6f, center = Offset(x, y))
                     }
                 }
+
+                if (validRiwayat.size > 1) {
+                    drawPath(pathData, color = Color.Black, style = Stroke(width = 4f, cap = StrokeCap.Round))
+                }
             }
-            drawPath(pathData, color = Color.Red, style = Stroke(width = 4f))
         }
     }
 }

@@ -1,34 +1,28 @@
 const User = require("../models/User");
-const Desa = require("../models/Desa");
+const Anak = require("../models/Anak");
 const Posyandu = require("../models/Posyandu");
+const Desa = require("../models/Desa");
+const Pengukuran = require("../models/Pengukuran");
 const AdminProfile = require("../models/AdminProfile");
 const KaderProfile = require("../models/KaderProfile");
 const OrangTuaProfile = require("../models/OrangTuaProfile");
-const Anak = require("../models/Anak");
-const Pengukuran = require("../models/Pengukuran"); // TAMBAHAN: Import tabel Pengukuran KMS
 
-// --- FUNGSI BANTUAN UNTUK MENGHITUNG GIZI TERAKHIR ---
+// --- PERBAIKAN: Import rumus WHO ---
+const { hitungStatusGizi } = require("../utils/zscore");
+
 const hitungStatistikGizi = async (daftarAnak) => {
   let stats = { buruk: 0, kurang: 0, baik: 0, lebih: 0 };
   
   for (const anak of daftarAnak) {
-    // Ambil pengukuran KMS anak yang paling baru
     const lastUkur = await Pengukuran.findOne({
       where: { anak_id: anak.id },
-      order: [['tanggal_pencatatan', 'DESC'], ['createdAt', 'DESC']]
+      order: [['tanggal_pencatatan', 'DESC'], ['id', 'DESC']]
     });
 
-    if (lastUkur && lastUkur.status_gizi) {
-      let giziStatus = "";
-      try {
-          // Parse JSON karena status gizi disave dalam bentuk string JSON
-          const parsed = JSON.parse(lastUkur.status_gizi);
-          giziStatus = parsed.bb_u || "";
-      } catch (e) {
-          giziStatus = lastUkur.status_gizi;
-      }
+    if (lastUkur) {
+      const hasilGizi = hitungStatusGizi(anak.jenis_kelamin, lastUkur.umur_bulan, lastUkur.berat_badan, 0);
+      let giziStatus = hasilGizi.bb_u || "";
 
-      // Deteksi kata kunci
       if (giziStatus.includes("Buruk")) stats.buruk++;
       else if (giziStatus.includes("Kurang")) stats.kurang++;
       else if (giziStatus.includes("Baik") || giziStatus.includes("Normal")) stats.baik++;
@@ -38,84 +32,62 @@ const hitungStatistikGizi = async (daftarAnak) => {
   return stats;
 };
 
-// --- 1. SUPER ADMIN (Tidak butuh Profile, hitung global) ---
+// --- 1. SUPER ADMIN ---
 const getSuperAdminDashboard = async (req, res) => {
   try {
-    const totalAdmin = await User.count({ where: { role: "admin" } });
-    const totalKader = await User.count({ where: { role: "kader" } });
-    const totalOrangTua = await User.count({ where: { role: "orangtua" } });
-    const totalPengguna = await User.count();
+    const totalAdminDesa = await User.count({ where: { role: 'admin' } });
+    const totalKader = await User.count({ where: { role: 'kader' } });
     const totalDesa = await Desa.count();
     const totalPosyandu = await Posyandu.count();
-    const totalBalita = await Anak.count(); 
+    const daftarAnak = await Anak.findAll();
+    const totalOrangTua = await User.count({ where: { role: 'orangtua' } });
 
     res.status(200).json({
       statistik_nasional: {
-        total_admin_desa: totalAdmin,
+        total_admin_desa: totalAdminDesa,
         total_kader: totalKader,
         total_desa_terdaftar: totalDesa,
         total_posyandu_aktif: totalPosyandu,
-        total_anak_terdata: totalBalita,
-        total_orang_tua_terverifikasi: totalOrangTua,
-        total_pengguna: totalPengguna 
-      },
+        total_anak_terdata: daftarAnak.length,
+        total_orang_tua_terverifikasi: totalOrangTua
+      }
     });
   } catch (error) {
-    console.error("Error Superadmin Dashboard:", error);
-    res.status(500).json({ message: "Server Error", error: error.message });
+    console.error("Error SuperAdmin Dashboard:", error);
+    res.status(500).json({ message: "Server Error" });
   }
 };
 
-// --- 2. ADMIN DESA (Wajib Punya AdminProfile) ---
+// --- 2. ADMIN DESA ---
 const getAdminDashboard = async (req, res) => {
   try {
-    const adminProfile = await AdminProfile.findOne({
-      where: { user_id: req.user.id },
-      include: [{ model: Desa }],
+    const adminProfile = await AdminProfile.findOne({ 
+        where: { user_id: req.user.id },
+        include: [{ model: Desa }]
     });
 
-    if (!adminProfile) {
-        return res.status(200).json({
-            namaDesa: "Desa Belum Diset",
-            totalBalitaTerpantau: 0,
-            totalGiziBuruk: 0, totalGiziKurang: 0, totalGiziBaik: 0, totalGiziLebih: 0,
-            totalKaderAktif: 0, totalPosyandu: 0,
-            is_profile_incomplete: true 
-        });
+    if (!adminProfile || !adminProfile.desa_id) {
+        return res.status(404).json({ message: "Admin Profile tidak ditemukan" });
     }
 
     const desaId = adminProfile.desa_id;
-    const namaDesa = adminProfile.Desa ? adminProfile.Desa.nama_desa : "-";
-    const totalPosyandu = await Posyandu.count({ where: { desa_id: desaId } });
-
-    const posyandus = await Posyandu.findAll({ where: { desa_id: desaId }, attributes: ["id"] });
-    const posyanduIds = posyandus.map((p) => p.id);
-
-    if (posyanduIds.length === 0) {
-        return res.status(200).json({
-            namaDesa: namaDesa,
-            totalBalitaTerpantau: 0,
-            totalGiziBuruk: 0, totalGiziKurang: 0, totalGiziBaik: 0, totalGiziLebih: 0,
-            totalKaderAktif: 0, totalPosyandu: 0,
-        });
-    }
+    const posyandus = await Posyandu.findAll({ where: { desa_id: desaId } });
+    const posyanduIds = posyandus.map(p => p.id);
 
     const totalKader = await KaderProfile.count({ where: { posyandu_id: posyanduIds } });
-    
-    // Ambil daftar anak lalu kalkulasi gizinya
     const daftarAnak = await Anak.findAll({ where: { posyandu_id: posyanduIds } });
+
     const giziStats = await hitungStatistikGizi(daftarAnak);
 
-    // PERBAIKAN UTAMA: Masukkan hasil kalkulasi ke dalam Response JSON
     res.status(200).json({
-      namaDesa: namaDesa,
+      namaDesa: adminProfile.Desa ? adminProfile.Desa.nama_desa : "",
       totalBalitaTerpantau: daftarAnak.length,
-      totalGiziBuruk: giziStats.buruk, 
+      totalPosyandu: posyandus.length,
+      totalKaderAktif: totalKader,
+      totalGiziBuruk: giziStats.buruk,
       totalGiziKurang: giziStats.kurang,
       totalGiziBaik: giziStats.baik,
-      totalGiziLebih: giziStats.lebih,
-      totalKaderAktif: totalKader,
-      totalPosyandu: totalPosyandu,
+      totalGiziLebih: giziStats.lebih
     });
   } catch (error) {
     console.error("Error Admin Dashboard:", error);
@@ -123,46 +95,37 @@ const getAdminDashboard = async (req, res) => {
   }
 };
 
-// --- 3. KADER (Wajib Punya KaderProfile) ---
+// --- 3. KADER POSYANDU ---
 const getKaderDashboard = async (req, res) => {
   try {
-    const kader = await KaderProfile.findOne({
+    const kaderProfile = await KaderProfile.findOne({
       where: { user_id: req.user.id },
-      include: [{ model: Posyandu, include: [{ model: Desa }] }],
+      include: [{ model: Posyandu, include: [{ model: Desa }] }]
     });
 
-    if (!kader) {
-        return res.status(200).json({
-            namaPosyandu: "Belum Diset", namaDesa: "-",
-            totalBalitaDiPosyandu: 0, totalOrangTuaMenungguVerifikasi: 0,
-            totalGiziBuruk: 0, totalGiziKurang: 0, totalGiziBaik: 0, totalGiziLebih: 0,
-            is_profile_incomplete: true
-        });
+    if (!kaderProfile || !kaderProfile.posyandu_id) {
+      return res.status(404).json({ message: "Data posyandu kader tidak ditemukan" });
     }
 
-    const posyanduId = kader.posyandu_id;
-    const namaPosyandu = kader.Posyandu?.nama_posyandu || "-";
-    const namaDesa = kader.Posyandu?.Desa?.nama_desa || "-";
+    const posyanduId = kaderProfile.posyandu_id;
+    const daftarAnak = await Anak.findAll({ where: { posyandu_id: posyanduId } });
 
-    const pendingOrtu = await OrangTuaProfile.count({
-      where: { posyandu_id: posyanduId },
-      include: [{ model: User, where: { is_verified: false } }],
+    const totalMenungguVerifikasi = await OrangTuaProfile.count({
+        where: { posyandu_id: posyanduId },
+        include: [{ model: User, where: { is_verified: false, status: 'pending_verification' } }]
     });
 
-    // Ambil daftar anak lalu kalkulasi gizinya
-    const daftarAnak = await Anak.findAll({ where: { posyandu_id: posyanduId } });
     const giziStats = await hitungStatistikGizi(daftarAnak);
 
-    // PERBAIKAN UTAMA: Masukkan hasil kalkulasi ke dalam Response JSON
     res.status(200).json({
-      namaPosyandu,
-      namaDesa,
+      namaPosyandu: kaderProfile.Posyandu ? kaderProfile.Posyandu.nama_posyandu : "",
+      namaDesa: (kaderProfile.Posyandu && kaderProfile.Posyandu.Desa) ? kaderProfile.Posyandu.Desa.nama_desa : "",
       totalBalitaDiPosyandu: daftarAnak.length,
-      totalOrangTuaMenungguVerifikasi: pendingOrtu,
+      totalOrangTuaMenungguVerifikasi: totalMenungguVerifikasi,
       totalGiziBuruk: giziStats.buruk,
       totalGiziKurang: giziStats.kurang,
       totalGiziBaik: giziStats.baik,
-      totalGiziLebih: giziStats.lebih,
+      totalGiziLebih: giziStats.lebih
     });
   } catch (error) {
     console.error("Error Kader Dashboard:", error);
@@ -214,8 +177,8 @@ const getOrangTuaDashboard = async (req, res) => {
 };
 
 module.exports = {
-  getKaderDashboard,
-  getAdminDashboard,
   getSuperAdminDashboard,
-  getOrangTuaDashboard,
+  getAdminDashboard,
+  getKaderDashboard,
+  getOrangTuaDashboard
 };
